@@ -18,16 +18,20 @@
         @endif
     </article>
 
-    <article class="case-card">
-        <h2>Repair request and result</h2>
+    <article class="case-card case-repair-card">
+        <div class="case-card-head">
+            <h2>Repair request and result</h2>
+            @if($incident->canRepair())
+                <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form case-repair-action" data-busy-text="Checking the current condition and verifying the repair outcome...">
+                    @csrf
+                    <button class="button button-primary" type="submit">Run repair</button>
+                </form>
+            @endif
+        </div>
         <p class="case-fact" data-story-repair>{{ $story['repair'] }}</p>
         @if($incident->canRepair())
             <p class="quiet">Available action: <code>{{ $incident->repairCommand() }}</code></p>
             <p class="quiet">{{ $incident->device?->is_local ? 'Checks the condition before deciding whether to run a command.' : 'Queues a command for the endpoint; completion must be reported separately.' }}</p>
-            <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form" data-busy-text="Checking the current condition and verifying the repair outcome...">
-                @csrf
-                <button class="button button-primary" type="submit">Run repair</button>
-            </form>
         @elseif($incident->is_active && filled($incident->repairCommand()) && $incident->device && ! $incident->device->is_local)
             <p class="quiet">This computer is not reporting, so the command cannot be sent.</p>
         @elseif($incident->is_active)
