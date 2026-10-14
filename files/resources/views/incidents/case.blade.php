@@ -1,0 +1,68 @@
+@php
+    $story = $incident->story();
+    $attempt = $incident->latestRecovery();
+@endphp
+<section class="detail-stack record-grid">
+    <article class="case-card">
+        <h2>Detected condition</h2>
+        @if($openingCheck)
+            <p class="case-when">{{ \App\Support\CheckStory::sourceLabel($openingCheck) }} · {{ $openingCheck->checked_at->format('g:i:s A') }}</p>
+            <p class="case-fact">{{ $openedFact }}</p>
+            @if($incident->code === 'dhcp_issue')
+                <p class="quiet">This is an automatic fallback address. No normal DHCP address was obtained in this reading.</p>
+            @endif
+            <p class="quiet">Gateway: {{ $openingCheck->gateway_ip ?: 'None reported' }} · Adapter: {{ $openingCheck->interface_name ?: 'Unknown' }}</p>
+        @else
+            <p class="case-fact">{{ $incident->plainDetail() }}</p>
+            <p class="quiet">The exact opening measurement is not available for this record.</p>
+        @endif
+    </article>
+
+    <article class="case-card">
+        <h2>Repair</h2>
+        <p class="case-fact" data-story-repair>{{ $story['repair'] }}</p>
+        @if($incident->canRepair())
+            <p class="quiet">Available action: <code>{{ $incident->repairCommand() }}</code></p>
+            <p class="quiet">{{ $incident->device?->is_local ? 'Checks the condition before deciding whether to run a command.' : 'Queues a command for the endpoint; completion must be reported separately.' }}</p>
+            <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form" data-busy-text="Checking the current condition and verifying the repair outcome...">
+                @csrf
+                <button class="button button-primary" type="submit">Run repair</button>
+            </form>
+        @elseif($incident->is_active && filled($incident->repairCommand()) && $incident->device && ! $incident->device->is_local)
+            <p class="quiet">This computer is not reporting, so the command cannot be sent.</p>
+        @elseif($incident->is_active)
+            <p class="quiet">No repair command is available for this condition.</p>
+        @endif
+        @if($incident->is_active && $incident->nextStep())
+            <p class="next-step"><b>Next step:</b> {{ $incident->nextStep() }}</p>
+        @endif
+    </article>
+
+    <article class="case-card">
+        <h2>{{ $incident->is_active ? 'Current outcome' : 'Resolution observed' }}</h2>
+        <p class="case-fact" data-story-resolution>{{ $story['resolution'] }}</p>
+        @if(! $incident->is_active && $attempt?->beforeHealthCheck?->diagnosis_code === 'healthy' && $attempt->before_health_check_id !== $closingCheck?->id)
+            <p class="case-when">Check before repair · {{ $attempt->beforeHealthCheck->checked_at->format('g:i:s A') }}</p>
+            <p class="quiet">Already healthy: IPv4 {{ $attempt->beforeHealthCheck->local_ip ?: 'None' }} · Gateway {{ $attempt->beforeHealthCheck->gateway_ip ?: 'None' }}.</p>
+        @endif
+        @if(! $incident->is_active && $closingCheck)
+            <p class="case-when">{{ \App\Support\CheckStory::sourceLabel($closingCheck) }} · {{ $closingCheck->checked_at->format('g:i:s A') }}</p>
+            <p class="quiet">{{ $clearedFact }}</p>
+            <p class="quiet">Gateway: {{ $closingCheck->gateway_ip ?: 'None reported' }} · Diagnosis: {{ $closingCheck->diagnosis_title ?: $closingCheck->diagnosis_code }}</p>
+        @endif
+    </article>
+</section>
+@if($attempt)
+    <details class="repair-evidence">
+        <summary>Measurements and command details</summary>
+        <p class="quiet">Command status: {{ $attempt->execution_status ?: 'Not recorded separately in this attempt' }}. Verification: {{ $attempt->verification_status ?: ($attempt->success ? 'Verified' : 'Not verified') }}.</p>
+        @if($attempt->command_exit_code !== null)<p class="quiet">Command exit code: {{ $attempt->command_exit_code }}</p>@endif
+        @foreach(['Before' => $attempt->beforeHealthCheck, 'After' => $attempt->afterHealthCheck] as $stage => $evidence)
+            @if($evidence)
+                <p><b>{{ $stage }}:</b> {{ $evidence->checked_at->format('g:i:s A') }} · {{ $evidence->diagnosis_title ?: $evidence->diagnosis_code }} · IPv4 {{ $evidence->local_ip ?: 'None' }} · Gateway {{ $evidence->gateway_ip ?: 'None' }} · {{ $evidence->interface_name ?: 'Unknown adapter' }}</p>
+            @endif
+        @endforeach
+        @if($attempt->error_message)<p class="command-error">{{ $attempt->error_message }}</p>@endif
+        @if($attempt->output_excerpt)<pre class="command-output">{{ $attempt->output_excerpt }}</pre>@endif
+    </details>
+@endif

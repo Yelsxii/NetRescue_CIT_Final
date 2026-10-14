@@ -1,0 +1,120 @@
+{
+  "basis": "Uploaded NetRescue_CIT_Final(1).zip",
+  "files": [
+    {
+      "path": "app/Http/Controllers/DashboardController.php",
+      "original_sha256": "55a2f3c406926d2fd9a05d6e9155f03745f50cf14d0ddc8e28f01086a7f99ae7",
+      "patched_sha256": "457dfd443863477c96bf0a43aecd9092fe352323b20a35812962cbc457f39f81"
+    },
+    {
+      "path": "app/Http/Controllers/IncidentController.php",
+      "original_sha256": "fc0163bb5e8cfd2e1fe952606d7776153f4d82ff09070f99514490dbaaa60e28",
+      "patched_sha256": "2f01484d4f09b9dd9a23cf6cc77ef3e0b1a848bb04834074d8b81269e2ee800a"
+    },
+    {
+      "path": "app/Http/Controllers/RecoveryController.php",
+      "original_sha256": "0a675bf5f559d8644632e4e191584d321d7adb024a325c62ee5fa2d588121128",
+      "patched_sha256": "272e04f6f1dab2c52ec886f62a3969e1ee6fcad3f9457372adcfa966ace10bb4"
+    },
+    {
+      "path": "app/Models/HealthCheck.php",
+      "original_sha256": "673bbcfed470a5bc4ee57f9a1f443831285c7ad9c482323d83ed498c72e929c8",
+      "patched_sha256": "f2423695dd6ebea9e9cd3905b9f8b3771e5e9f3ada1e8fc53d283a3a127ddf08"
+    },
+    {
+      "path": "app/Models/Incident.php",
+      "original_sha256": "ea5cfe86595be61aa414bc8d170a4b028f3f56fa1213b5d0bdaee14aacc1675d",
+      "patched_sha256": "890b8f3b924e78d2b2673b4975310bf862f5fbfffe85055dcdfc1674fd1b47a3"
+    },
+    {
+      "path": "app/Models/RecoveryAction.php",
+      "original_sha256": "797892bcf65dfcf9a8010aea16bc9b1a9da865f6ec49829e2cd0fd9d10a2042f",
+      "patched_sha256": "8b89722618309de7a4efec842995f01a46315b66e648836aa46b4fe7ac122011"
+    },
+    {
+      "path": "app/Services/Network/IncidentManager.php",
+      "original_sha256": "29652f19af45b3509a7928530c8b8c5cc8552cead0c306b21a714ed25ed0170c",
+      "patched_sha256": "cc73bacc3fd9ba62ef649932169dbb82bb31357048fa90b0a06840a4d976fc5b"
+    },
+    {
+      "path": "app/Services/Network/NetworkHealthService.php",
+      "original_sha256": "bc09cec977680fdae622b8cab16cf01ecf80a9bdf227471bf504994d93534f6e",
+      "patched_sha256": "eed1c4ab8cf58fad6ddfe9ded25d1425271de686b763d9f7b4c6cebaa937b4bb"
+    },
+    {
+      "path": "app/Services/Network/NetworkProbeService.php",
+      "original_sha256": "46f470810582fbd73cbcc787036b3778888a79db63cc31e6b65a6ed2af91354c",
+      "patched_sha256": "d2d5442912b5c97d350f2d3743aea244c6f415cce96db1337fdfb4be3dc095d0"
+    },
+    {
+      "path": "app/Services/Network/RecoveryCommandRunner.php",
+      "original_sha256": null,
+      "patched_sha256": "07401aece4e82a1be060c5857069018f36db1b7f8f1c5e0ba4fea6f087835594"
+    },
+    {
+      "path": "app/Services/Network/RecoveryService.php",
+      "original_sha256": "b5aa4a5e9e035abed68a844e3e2e20284d415ef09b8623517750bb7d9c1734e7",
+      "patched_sha256": "9da1ee1eb61ad4b5d09886928a8b773206f0b6dd5bd4c010212d1e0b5bcba209"
+    },
+    {
+      "path": "app/Support/CheckStory.php",
+      "original_sha256": "6a309a81becbee4fd8ac6a2509d7f053048cbeec0c31feb71b8e98f8ab003b3f",
+      "patched_sha256": "974b5592e92f7ebad0f4514a8b5423db08f7931618764e388d60bdcd00b5fa4f"
+    },
+    {
+      "path": "app/Support/IncidentStory.php",
+      "original_sha256": null,
+      "patched_sha256": "30af6a14378f08a104ace9e5198e23004e5e4c181e6dd99b6ed8fd78505586d0"
+    },
+    {
+      "path": "database/migrations/2026_10_14_000010_add_recovery_evidence.php",
+      "original_sha256": null,
+      "patched_sha256": "7ce935482c440ab38a92993e26bfd49f532ad5d8d466d5e5f1e430d77fbb462c"
+    },
+    {
+      "path": "public/css/app.css",
+      "original_sha256": "a77b2a4ce3a9feeb26e967a952762d90f3525940605275149996c37de6c5558b",
+      "patched_sha256": "9049d752f2485a51b2df894335844a8a300ed4b594af517e1f8e012c642e6b83"
+    },
+    {
+      "path": "resources/views/components/check-table.blade.php",
+      "original_sha256": "e8cdcde3d01f8a983535a37dcf9ec2e250030e679d5ae068123b64d8c500b3c2",
+      "patched_sha256": "4fb8a41c595228855a77650110682a562e091fcecfa704a3bec29537bc9150e9"
+    },
+    {
+      "path": "resources/views/dashboard/index.blade.php",
+      "original_sha256": "faabef16273cd35cde34592b8cf830b6ee10104cab683f967b23ba0034504668",
+      "patched_sha256": "7c72c27d10e0cd02671959b1e67d7e99d8d0980471c2df0304e64bef6f0b674c"
+    },
+    {
+      "path": "resources/views/devices/show.blade.php",
+      "original_sha256": "f6b3468d62e15c781656e8e3c45ec02f73044937fd6eac32fc7a7388eab957c6",
+      "patched_sha256": "6699e1d5769e449420733871d30bc7f62c0ad809a1b020ef88e0803b04fb23be"
+    },
+    {
+      "path": "resources/views/history/index.blade.php",
+      "original_sha256": "dbe9eb2ca28165d0b34560e68523a5cd5f58a35e1d2adde11f7163c58175c67e",
+      "patched_sha256": "626dda34c8cfd6c35240f367f1bb127d9999c46171616da7a052a883bac81405"
+    },
+    {
+      "path": "resources/views/incidents/case.blade.php",
+      "original_sha256": "0d3078391611c116f2ac92d7d0477ff64e06b1b762ae6fa602dd1b6a32966c2c",
+      "patched_sha256": "feac5f0bf124f2291452a96e039ed5c576ec880afe0b26b2b98953d1789e4dff"
+    },
+    {
+      "path": "resources/views/incidents/panel.blade.php",
+      "original_sha256": "e5481272086f5af27fbfeaf056ed9f89758db12175b23276cef64e52d03d5f75",
+      "patched_sha256": "fa465bb08833f050cf7dc798d63c461fac96e2e6e3f274e1e41fd68e50ed17a4"
+    },
+    {
+      "path": "resources/views/incidents/show.blade.php",
+      "original_sha256": "ce06786a9b55877fa7e4a2a1afc52e9fb467ccdbe2a91a04625fef9442aa4b84",
+      "patched_sha256": "457350478dec9ba9a0699d0837686b07eec2f4ed5a52f9d3fb4cd939ce2d0f69"
+    },
+    {
+      "path": "tests/Feature/RecoveryEvidenceTest.php",
+      "original_sha256": null,
+      "patched_sha256": "e617c9ff117bc5aa2daf3b3bf30b1ec25c45d484489e3ab5e2b20e802fbc605a"
+    }
+  ]
+}
