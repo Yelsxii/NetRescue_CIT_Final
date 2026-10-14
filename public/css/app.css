@@ -747,3 +747,9 @@ html.theme-light .side-user { background: rgba(15, 23, 42, .04); }
 .incident-table thead th { z-index: 3; background: #10203a; background-clip: border-box; box-shadow: 0 1px 0 rgba(148,163,184,.2); }
 html.theme-light .incident-table thead th { background: #edf2f9; color: #41536d; }
 #recordModalBody { overscroll-behavior: contain; }
+
+/* Keep the incident repair action with its card heading. */
+.case-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.case-card-head h2 { flex: 1; min-width: 0; margin: 0; line-height: 1.4; }
+.case-repair-action { flex: none; margin: 0; }
+.case-repair-action .button { height: 30px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
