@@ -49,7 +49,7 @@ class DashboardController extends Controller
 
         $networkNow = collect($networkNow)->map(function (array $row) use ($networkScale, $settings) {
             $row['width'] = is_numeric($row['ms'])
-                ? max(8, (int) round(((float) $row['ms'] / $networkScale) * 100))
+                ? ($networkScale > 0 ? round(((float) $row['ms'] / $networkScale) * 100, 2) : 0)
                 : ($row['ok'] === false ? 100 : 8);
             $row['slow'] = is_numeric($row['ms']) && (float) $row['ms'] > (float) $settings->latency_warning_ms;
 

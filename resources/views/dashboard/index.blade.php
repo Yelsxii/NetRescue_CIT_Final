@@ -57,6 +57,7 @@
         $window = $summary['response_points']->slice(-48)->values();
         $warn = (int) $settings->latency_warning_ms;
         $marker = $networkScale > 0 ? min(100, ($warn / $networkScale) * 100) : 100;
+        $scaleEnd = rtrim(rtrim(number_format((float) $networkScale, 1, '.', ''), '0'), '.');
         $outside = function ($ok, $ms) use ($warn) {
             return $ok === false || (is_numeric($ms) && (float) $ms > $warn);
         };
@@ -70,7 +71,8 @@
         <article class="chart-panel">
             <div class="panel-title">
                 <div>
-                    <h2>Against the warning</h2>
+                    <h2>Response times</h2>
+                    <p>{{ $warn }} ms warning threshold</p>
                 </div>
             </div>
             @if($measuredCheck)
@@ -94,8 +96,13 @@
                             </div>
                         </div>
                     @endforeach
+                    <div class="meter-scale">
+                        <span>0 ms</span>
+                        <span>{{ $scaleEnd }} ms</span>
+                    </div>
                 </div>
-                <div class="tally" aria-label="Recent checks outside the warning">
+                <div class="tally" aria-label="Slow or failed checks">
+                    <p class="tally-label">Slow or failed checks</p>
                     @foreach($tally as $item)
                         <article>
                             <span>{{ $item['label'] }}</span>

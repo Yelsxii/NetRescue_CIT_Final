@@ -57,6 +57,12 @@ class DashboardTest extends TestCase
         $response->assertOk();
         $response->assertSee('100%');
         $response->assertSee('CIT network operations are stable');
-        $response->assertSee('Against the warning');
+        $response->assertSee('Response times');
+        $response->assertSee('100 ms warning threshold');
+        $response->assertSee('Slow or failed checks');
+        $response->assertSee('width: 3.2%', false);
+        $response->assertSee('width: 25.1%', false);
+        $response->assertSee('0 ms');
+        $response->assertSee('100 ms');
     }
 }

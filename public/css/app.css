@@ -245,8 +245,10 @@ html.theme-light .theme-toggle .icon-moon { display: block; }
 .meter-track i.is-slow { background: linear-gradient(90deg, #fbbf24, #fde68a); }
 .meter-track i.is-fail { background: linear-gradient(90deg, #fb7185, #fecdd3); }
 .meter-warn { position: absolute; z-index: 2; top: -6px; width: 2px; height: 24px; margin-left: -1px; border-radius: 99px; background: #f8fbff; }
+.meter-scale { flex: none; display: flex; justify-content: space-between; margin-top: 2px; color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
 .meter-note { margin-top: 6px; color: #9fb4d6; font-size: 11px; }
 .tally { flex: none; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.tally-label { grid-column: 1 / -1; margin: 8px 0 0; color: var(--muted); font-size: 12px; font-weight: 700; }
 .tally article { padding: 10px 14px; border-radius: 14px; background: rgba(255,255,255,.05); border: 1px solid rgba(255,255,255,.08); }
 .tally span, .tally small { display: block; color: #9fb4d6; font-size: 12px; }
 .tally strong { display: block; margin: 2px 0; font-size: 22px; letter-spacing: -.03em; }
