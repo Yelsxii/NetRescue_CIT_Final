@@ -23,7 +23,9 @@ class DiagnosticEngine
                 code: 'configuration_unreadable',
                 title: 'Network reading did not finish',
                 severity: 'low',
-                summary: 'Windows did not return the adapter in time, so this check did not measure the network.',
+                summary: in_array($metrics['configuration_error_code'] ?? null, ['adapter_transitioning', 'adapter_snapshot_changed'], true)
+                    ? 'Windows has not returned a stable adapter state. This reading did not measure the connection.'
+                    : 'Windows did not provide a complete adapter reading, so this check did not measure the network.',
                 details: [
                     'This is not a missing adapter. The last completed reading is still the known configuration.',
                     'Gateway, Internet, and name lookup were not run for this check.',

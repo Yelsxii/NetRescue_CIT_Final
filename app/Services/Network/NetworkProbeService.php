@@ -40,7 +40,8 @@ class NetworkProbeService
         $result = $this->runProcess($command, $timeout);
 
         if (!$result['successful']) {
-            return $this->emptyConfiguration($result['error'] ?: 'Windows network configuration could not be read.');
+            return $this->emptyConfiguration($result['error'] ?: 'Windows network configuration could not be read.', true,
+                ! empty($result['timed_out']) ? 'process_timed_out' : 'process_failed');
         }
 
         $decoded = json_decode(trim($result['output']), true);
@@ -55,6 +56,8 @@ class NetworkProbeService
         if (filled($decoded['error'] ?? null)) {
             $configuration = $this->emptyConfiguration((string) $decoded['error']);
             $configuration['interface_name'] = $decoded['interfaceName'] ?? $interfaceName;
+            $configuration['error_code'] = $decoded['errorCode'] ?? 'configuration_read_failed';
+            $configuration['windows_adapter_status'] = $decoded['windowsAdapterStatus'] ?? null;
             return $configuration;
         }
         if (filled($interfaceName) && ($decoded['interfaceName'] ?? null) !== $interfaceName) {
@@ -75,6 +78,8 @@ class NetworkProbeService
             'dns_source' => $this->addressSource($decoded['dnsSource'] ?? null),
             'reader' => is_string($decoded['reader'] ?? null) ? $decoded['reader'] : null,
             'error' => null,
+            'error_code' => null,
+            'windows_adapter_status' => $decoded['windowsAdapterStatus'] ?? null,
         ];
     }
 
@@ -195,7 +200,7 @@ POWERSHELL;
         ];
     }
 
-    private function emptyConfiguration(string $error, bool $supported = true): array
+    private function emptyConfiguration(string $error, bool $supported = true, string $errorCode = 'configuration_read_failed'): array
     {
         return [
             'supported' => $supported,
@@ -208,6 +213,8 @@ POWERSHELL;
             'address_source' => 'unknown',
             'dns_source' => 'unknown',
             'error' => $error,
+            'error_code' => $errorCode,
+            'windows_adapter_status' => null,
         ];
     }
 
@@ -237,8 +244,15 @@ POWERSHELL;
 
     private function changeAdapter(string $name, string $command): array
     {
-        $script = "\$ErrorActionPreference = 'Stop'; ".$command." -Name '".$name."' -Confirm:\$false -ErrorAction Stop";
-        $result = $this->runPowerShell($script, (float) config('netrescue.timeouts.recovery_seconds', 35));
+        $script = resource_path('powershell/change-adapter.ps1');
+        if (! is_readable($script)) {
+            return ['successful' => false, 'output' => '', 'error' => 'The Windows adapter command script is missing.', 'exit_code' => null, 'timed_out' => false];
+        }
+        $action = $command === 'Enable-NetAdapter' ? 'Enable' : 'Restart';
+        $actionCode = $action === 'Enable' ? 'enable_adapter' : 'restart_adapter';
+        $result = $this->runProcess([$this->windowsTool('WindowsPowerShell\\v1.0\\powershell.exe'),
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $script,
+            '-Action', $action, '-InterfaceName', $name], app(NetworkRequestTimeout::class)->commandSeconds($actionCode));
 
         return [
             'successful' => $result['successful'],

@@ -13,14 +13,16 @@ return [
         'dns_seconds' => 6,
         'socket_seconds' => 2.5,
         'recovery_seconds' => 35,
+        // Adapter state changes may still be running when the old 35s cap ends.
+        'adapter_recovery_seconds' => 60,
     ],
     'verification' => [
         // Re-read after transient reconnect/reader failures; never repeat the command.
         'attempts' => 3,
         'retry_delay_seconds' => 1,
-        // Try a fresh snapshot promptly after link changes. Later readings keep
-        // the normal configuration allowance; the repair command is never repeated.
-        'initial_configuration_seconds' => 5,
+        // Every follow-up uses timeouts.powershell_seconds, including the first.
+        'reconnect_window_seconds' => 60,
+        'reconnect_poll_seconds' => 2,
     ],
     'health_weights' => [
         'gateway' => 30,

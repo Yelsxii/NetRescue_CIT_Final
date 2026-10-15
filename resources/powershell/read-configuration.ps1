@@ -3,6 +3,8 @@ param([string]$InterfaceName = '')
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 $reader = 'route_and_adapter'
+$errorCode = 'configuration_read_failed'
+$windowsAdapterStatus = $null
 
 function Write-Reading($available, $state, $name, $ip, $gateway, $dns, $addressSource, $dnsSource) {
     [pscustomobject]@{
@@ -80,6 +82,7 @@ try {
             # An unused disconnected Ethernet adapter is never a substitute.
             $target = Get-NetAdapter -Name $InterfaceName -ErrorAction Stop | Where-Object { $_.Name -eq $InterfaceName } | Select-Object -First 1
             if (-not $target) { throw 'The requested adapter was not returned by Windows.' }
+            $windowsAdapterStatus = [string]$target.Status
             if ($target.Status -eq 'Disabled') {
                 Write-Reading $false 'disabled' $target.Name $null $null @() 'unknown' 'unknown'
                 exit 0
@@ -88,12 +91,16 @@ try {
                 Write-Reading $false 'disconnected' $target.Name $null $null @() 'unknown' 'unknown'
                 exit 0
             }
-            if ($target.Status -ne 'Up') { throw 'The requested adapter is transitioning; Windows has not returned a stable link state.' }
+            if ($target.Status -ne 'Up') {
+                $errorCode = 'adapter_transitioning'
+                throw ('The requested adapter has no stable link state. Windows status: ' + $windowsAdapterStatus + '.')
+            }
             $routes = @(Get-NetRoute -AddressFamily IPv4 -InterfaceIndex $target.InterfaceIndex -ErrorAction Stop | Where-Object {
                 $_.DestinationPrefix -eq '0.0.0.0/0' -and $_.NextHop -and $_.NextHop -ne '0.0.0.0'
             } | Sort-Object @{ Expression = { [long]$_.RouteMetric + [long]$_.InterfaceMetric } })
             $snapshot = Get-InterfaceSnapshot
             if (-not $snapshot.ByIndex.ContainsKey([int]$target.InterfaceIndex)) {
+                $errorCode = 'adapter_snapshot_changed'
                 throw 'The requested adapter changed state during the reading. Automatic verification must read it again.'
             }
             $selected = $snapshot.ByIndex[[int]$target.InterfaceIndex]
@@ -120,6 +127,7 @@ try {
             $active = Select-NamedAdapter -Adapters $activePhysical
             if ($active) {
                 if (-not $snapshot.ByIndex.ContainsKey([int]$active.InterfaceIndex)) {
+                    $errorCode = 'adapter_snapshot_changed'
                     throw 'The active adapter changed state during the reading. Windows must return a fresh interface snapshot.'
                 }
                 $selected = $snapshot.ByIndex[[int]$active.InterfaceIndex]
@@ -173,5 +181,7 @@ try {
         localIp = $null; gatewayIp = $null; dnsServers = @()
         addressSource = 'unknown'; dnsSource = 'unknown'; error = $_.Exception.Message
         reader = $reader
+        errorCode = $errorCode
+        windowsAdapterStatus = $windowsAdapterStatus
     } | ConvertTo-Json -Compress -Depth 4
 }

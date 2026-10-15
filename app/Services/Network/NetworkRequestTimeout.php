@@ -25,14 +25,33 @@ class NetworkRequestTimeout
     public function recoverySeconds(string $actionCode, string $incidentCode): int
     {
         $commands = $actionCode === 'renew_dhcp' && $incidentCode === 'dhcp_issue' ? 2 : 1;
-        $commandSeconds = (float) config('netrescue.timeouts.recovery_seconds', 35);
+        $commandSeconds = $this->commandSeconds($actionCode);
 
         $attempts = max(1, min(3, (int) config('netrescue.verification.attempts', 3)));
         $delay = max(0, min(5, (float) config('netrescue.verification.retry_delay_seconds', 1)));
         // One fresh precheck and up to three automatic follow-ups. These are
         // worst-case allowances, not delays added to a successful repair.
-        return max(180, (int) ceil((1 + $attempts) * $this->measurementSeconds()
-            + $commands * $commandSeconds + ($attempts - 1) * $delay + 30));
+        $standard = (1 + $attempts) * $this->measurementSeconds()
+            + $commands * $commandSeconds + ($attempts - 1) * $delay;
+        // Include an in-flight reading at the end of the elapsed reconnect window.
+        $reconnect = in_array($actionCode, ['enable_adapter', 'restart_adapter'], true)
+            ? 2 * $this->measurementSeconds() + $commandSeconds + $this->reconnectSeconds() : 0;
+        return max(180, (int) ceil(max($standard, $reconnect) + 30));
+    }
+
+    public function commandSeconds(string $actionCode): float
+    {
+        if (! in_array($actionCode, ['enable_adapter', 'restart_adapter'], true)) {
+            return (float) config('netrescue.timeouts.recovery_seconds', 35);
+        }
+        $seconds = (float) config('netrescue.timeouts.adapter_recovery_seconds', 60);
+        return is_finite($seconds) && $seconds > 0 ? min(120, $seconds) : 60.0;
+    }
+
+    public function reconnectSeconds(): float
+    {
+        $seconds = (float) config('netrescue.verification.reconnect_window_seconds', 60);
+        return is_finite($seconds) && $seconds >= 0 ? min(120, $seconds) : 60.0;
     }
 
     private function measurementSeconds(): float

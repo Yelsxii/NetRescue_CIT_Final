@@ -43,6 +43,8 @@ class NetworkHealthService
                 'address_source' => $configuration['address_source'] ?? 'unknown',
                 'dns_source' => $configuration['dns_source'] ?? 'unknown',
                 'configuration_reader' => $configuration['reader'] ?? null,
+                'configuration_error_code' => $configuration['error_code'] ?? null,
+                'windows_adapter_status' => $configuration['windows_adapter_status'] ?? null,
                 'interface_name' => $configuration['interface_name'] ?? null,
                 'local_ip' => $localIp,
                 'ip_assignment' => $ipAssignment,
@@ -157,6 +159,8 @@ class NetworkHealthService
                 'address_source' => $metrics['address_source'] ?? 'unknown',
                 'dns_source' => $metrics['dns_source'] ?? 'unknown',
                 'configuration_reader' => $metrics['configuration_reader'] ?? null,
+                'configuration_error_code' => $metrics['configuration_error_code'] ?? null,
+                'windows_adapter_status' => $metrics['windows_adapter_status'] ?? null,
             ],
         ]);
     }

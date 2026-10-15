@@ -157,8 +157,7 @@ class AutomaticRecoveryTest extends TestCase
     {
         $probe = Mockery::mock(NetworkProbeService::class);
         $probe->shouldReceive('collectConfiguration')->once()->withNoArgs()->andReturn($this->disabled());
-        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi')->andReturn($this->disabled());
-        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi', 5.0)->andReturn($this->healthy());
+        $probe->shouldReceive('collectConfiguration')->twice()->with('Wi-Fi')->andReturn($this->disabled(), $this->healthy());
         $probe->shouldReceive('probeGateway')->once()->andReturn(['reachable' => true, 'latency_ms' => 2, 'error' => null]);
         $probe->shouldReceive('probeInternet')->once()->andReturn(['reachable' => true, 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null]);
         $probe->shouldReceive('probeDns')->once()->andReturn(['operational' => true, 'latency_ms' => 30, 'addresses' => ['93.184.215.14'], 'error' => null]);
@@ -195,7 +194,7 @@ class AutomaticRecoveryTest extends TestCase
 
     public function test_a_timed_out_command_retains_unknown_completion_and_automatically_observes_later_recovery(): void
     {
-        $this->readings($this->disabled(), $this->disabled(), $this->disabled(), $this->healthy());
+        $this->readings($this->disabled(), $this->disabled(), $this->unread(), $this->healthy());
         $incident = $this->opened(); $this->command(false, true);
         $this->post('/incidents/'.$incident->id.'/recover')
             ->assertRedirect('/incidents/'.$incident->id)
@@ -210,6 +209,17 @@ class AutomaticRecoveryTest extends TestCase
         $this->assertSame($result->after_health_check_id, $incident->fresh()->closing_health_check_id);
         $this->assertStringContainsString('completion was not confirmed', $result->outcomeSummary());
         $this->assertStringContainsString('not verified as its cause', $result->outcomeSummary());
+        $this->assertEquals(20.0, data_get($result->earlierVerificationChecks()->sole()->probe_meta, 'recovery_verification.configuration_timeout_seconds'));
+        $storedAction = $result->getRawOriginal();
+        $storedIncident = $incident->fresh()->getRawOriginal();
+        foreach ([[], ['X-Panel' => '1']] as $headers) {
+            $this->get('/incidents/'.$incident->id, $headers)->assertOk()
+                ->assertSeeText('A later reading observed recovery; the repair remains unverified.')
+                ->assertSeeText('Command timed out; completion unconfirmed')
+                ->assertDontSeeText('A later automatic reading verified recovery');
+        }
+        $this->assertSame($storedAction, $result->fresh()->getRawOriginal());
+        $this->assertSame($storedIncident, $incident->fresh()->getRawOriginal());
     }
 
     public function test_the_existing_nr27_timeout_is_described_as_uncertain_without_rewriting_it(): void
@@ -254,12 +264,13 @@ class AutomaticRecoveryTest extends TestCase
         $this->assertSame('observed_recovery', $incident->fresh()->resolution_kind);
     }
 
-    public function test_only_the_first_post_enable_configuration_read_gets_the_short_budget(): void
+    public function test_every_post_enable_read_uses_the_normal_allowance_even_with_a_stale_quick_setting(): void
     {
+        config(['netrescue.verification.initial_configuration_seconds' => 5]);
         $probe = Mockery::mock(NetworkProbeService::class);
         $probe->shouldReceive('collectConfiguration')->once()->withNoArgs()->ordered()->andReturn($this->disabled());
         $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi')->ordered()->andReturn($this->disabled());
-        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi', 5.0)->ordered()->andReturn($this->unread());
+        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi')->ordered()->andReturn($this->unread());
         $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi')->ordered()->andReturn($this->healthy());
         $probe->shouldReceive('probeGateway')->once()->andReturn(['reachable' => true, 'latency_ms' => 2, 'error' => null]);
         $probe->shouldReceive('probeInternet')->once()->andReturn(['reachable' => true, 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null]);
@@ -270,9 +281,10 @@ class AutomaticRecoveryTest extends TestCase
         $this->assertTrue($action->success);
         $first = $action->earlierVerificationChecks()->sole();
         $this->assertSame('configuration_unreadable', $first->diagnosis_code);
-        $this->assertEquals(5.0, data_get($first->probe_meta, 'recovery_verification.configuration_timeout_seconds'));
+        $this->assertEquals(20.0, data_get($first->probe_meta, 'recovery_verification.configuration_timeout_seconds'));
         $this->assertEquals(20.0, data_get($action->afterHealthCheck->probe_meta, 'recovery_verification.configuration_timeout_seconds'));
         $this->assertSame(20, config('netrescue.timeouts.powershell_seconds'));
+        $this->assertSame(35, config('netrescue.timeouts.recovery_seconds'));
         $this->assertSame('verified_repair', $incident->fresh()->resolution_kind);
     }
 
@@ -303,6 +315,8 @@ class AutomaticRecoveryTest extends TestCase
         $meta['errors'] = ['The configuration process exceeded the timeout of 20 seconds.'];
         unset($meta['recovery_verification']['configuration_timeout_seconds']);
         $first->update(['probe_meta' => $meta]);
+        $storedCheck = $first->getRawOriginal();
+        $storedAction = $action->getRawOriginal();
         foreach ([[], ['X-Panel' => '1']] as $headers) {
             $this->get('/incidents/'.$incident->id, $headers)->assertOk()
                 ->assertSeeText('Earlier automatic reading 1:')
@@ -310,12 +324,16 @@ class AutomaticRecoveryTest extends TestCase
                 ->assertSeeText('Measured adapter: Not obtained')
                 ->assertSeeText('Requested adapter: Wi-Fi')
                 ->assertSeeText('Reading error: The configuration process exceeded the timeout of 20 seconds.')
+                ->assertSeeText('A later automatic reading verified recovery; this warning does not change the verified result.')
+                ->assertSee('<p class="quiet">Reading error:', false)
                 ->assertSeeInOrder(['Before:', 'Earlier automatic reading 1:', 'After:']);
         }
         $this->assertTrue($action->fresh()->success);
         $this->assertSame(0, $action->fresh()->command_exit_code);
         $this->assertSame('verified', $action->fresh()->verification_status);
         $this->assertSame('verified_repair', $incident->fresh()->resolution_kind);
+        $this->assertSame($storedCheck, $first->fresh()->getRawOriginal());
+        $this->assertSame($storedAction, $action->fresh()->getRawOriginal());
     }
 
     public function test_earlier_readings_use_exact_ids_and_exclude_another_computer(): void

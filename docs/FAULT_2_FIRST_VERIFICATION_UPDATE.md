@@ -1,5 +1,9 @@
 > Historical troubleshooting note. The current application monitors this computer only. See README.md and docs/LOCAL_ONLY_MONITORING.md for current startup/scope; old device/agent instructions no longer apply.
 
+> Superseded timing policy: the five-second first-reading limit described below
+> has been removed. Every automatic follow-up now uses the normal configuration
+> allowance. See FAULT_2_STABLE_FOLLOWUP.md. Historical measurements are unchanged.
+
 # Fault 2: bounded first verification and retained reading details
 
 ## What NR-00029 proves

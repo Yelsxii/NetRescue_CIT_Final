@@ -35,9 +35,9 @@ class NetworkRequestTimeoutTest extends TestCase
         $this->assertGreaterThan(144, $timeout->recoverySeconds('renew_dhcp', 'dhcp_issue'));
         $this->assertGreaterThan(109, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
         $this->assertGreaterThan(60, $timeout->checkSeconds());
-        $this->assertSame(211, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
+        $this->assertSame(236, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
         config(['netrescue.verification.attempts' => 100, 'netrescue.verification.retry_delay_seconds' => 100]);
-        $this->assertSame(219, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
+        $this->assertSame(244, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
     }
 
     public function test_custom_probe_limits_and_all_configured_targets_are_accounted_for(): void
@@ -109,5 +109,19 @@ class NetworkRequestTimeoutTest extends TestCase
         $this->from('/history')->post('/incidents/'.$incident->id.'/recover')
             ->assertRedirect('/history')->assertSessionHas('toast.title', 'Recovery could not start');
         $this->assertDatabaseCount('recovery_actions', 0);
+    }
+
+    public function test_adapter_limits_and_reconnect_window_share_the_request_and_lock_allowance(): void
+    {
+        $timeout = app(NetworkRequestTimeout::class);
+        $this->assertSame(60.0, $timeout->commandSeconds('enable_adapter'));
+        $this->assertSame(60.0, $timeout->commandSeconds('restart_adapter'));
+        $this->assertSame(35.0, $timeout->commandSeconds('flush_dns'));
+        $this->assertSame(35.0, $timeout->commandSeconds('renew_dhcp'));
+        config(['netrescue.timeouts.adapter_recovery_seconds' => 90, 'netrescue.verification.reconnect_window_seconds' => 120]);
+        $this->assertGreaterThanOrEqual(36 + 90 + 120 + 36 + 30, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
+        config(['netrescue.timeouts.adapter_recovery_seconds' => INF, 'netrescue.verification.reconnect_window_seconds' => NAN]);
+        $this->assertSame(60.0, $timeout->commandSeconds('enable_adapter'));
+        $this->assertSame(60.0, $timeout->reconnectSeconds());
     }
 }

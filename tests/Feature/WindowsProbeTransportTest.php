@@ -30,10 +30,13 @@ class WindowsProbeTransportTest extends TestCase
         $probe->enableAdapter('Wi-Fi 2');
         $command = $probe->commands[0]['command'];
         $this->assertStringEndsWith('\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', $command[0]);
-        $this->assertSame('-EncodedCommand', $command[count($command) - 2]);
-        $script = mb_convert_encoding(base64_decode(end($command), true), 'UTF-8', 'UTF-16LE');
-        $this->assertStringContainsString("Enable-NetAdapter -Name 'Wi-Fi 2' -Confirm:\$false -ErrorAction Stop", $script);
-        $this->assertSame(35.0, $probe->commands[0]['timeout']);
+        $this->assertSame(['-File', resource_path('powershell/change-adapter.ps1'), '-Action', 'Enable', '-InterfaceName', 'Wi-Fi 2'], array_slice($command, -6));
+        $script = file_get_contents(resource_path('powershell/change-adapter.ps1'));
+        $this->assertStringContainsString('Enable-NetAdapter -Name $InterfaceName -Confirm:$false -ErrorAction Stop', $script);
+        $this->assertStringContainsString("Write-Stage 'module_import_finished'", $script);
+        $this->assertStringContainsString("Write-Stage 'command_returned'", $script);
+        $this->assertSame(1, substr_count($script, 'Enable-NetAdapter -Name'));
+        $this->assertSame(60.0, $probe->commands[0]['timeout']);
         $incident = new Incident(['recovery_action_code' => 'enable_adapter']);
         $incident->setRelation('device', new Device(['is_local' => true]));
         $incident->setRelation('latestHealthCheck', new HealthCheck(['interface_name' => 'Wi-Fi 2']));
@@ -60,13 +63,13 @@ class WindowsProbeTransportTest extends TestCase
 
     public function test_enable_timeout_is_retained_as_unconfirmed_with_partial_output(): void
     {
-        $probe = $this->probe(['successful' => false, 'output' => 'Command started',
+        $probe = $this->probe(['successful' => false, 'output' => 'NetRescue command stage: command_returned; elapsed_ms=25000',
             'error' => 'The process exceeded the timeout of 35 seconds.', 'exit_code' => null, 'timed_out' => true]);
         $result = $probe->enableAdapter('Wi-Fi');
         $this->assertFalse($result['successful']);
         $this->assertTrue($result['timed_out']);
         $this->assertNull($result['exit_code']);
-        $this->assertSame('Command started', $result['output']);
+        $this->assertSame('NetRescue command stage: command_returned; elapsed_ms=25000', $result['output']);
         $this->assertStringContainsString('35 seconds', $result['error']);
     }
 
@@ -123,5 +126,29 @@ class WindowsProbeTransportTest extends TestCase
                 $this->assertSame([], $probe->commands);
             }
         }
+    }
+
+    public function test_transition_and_process_timeout_have_distinct_machine_readable_reasons(): void
+    {
+        $probe = $this->probe(['successful' => true, 'output' => json_encode([
+            'interfaceName' => 'Wi-Fi', 'error' => 'Windows has no stable link state.',
+            'errorCode' => 'adapter_transitioning', 'windowsAdapterStatus' => 'Unknown',
+        ]), 'error' => '', 'exit_code' => 0]);
+        $reading = $probe->collectConfiguration('Wi-Fi');
+        $this->assertSame('adapter_transitioning', $reading['error_code']);
+        $this->assertSame('Unknown', $reading['windows_adapter_status']);
+        $this->assertNull($reading['adapter_state']);
+        $probe = $this->probe(['successful' => false, 'output' => '', 'error' => 'Timed out', 'timed_out' => true]);
+        $this->assertSame('process_timed_out', $probe->collectConfiguration('Wi-Fi')['error_code']);
+    }
+
+    public function test_restart_uses_the_same_bounded_adapter_path(): void
+    {
+        $probe = $this->probe(['successful' => false, 'output' => 'command_start', 'error' => 'Access denied', 'exit_code' => 1]);
+        $result = $probe->restartAdapter('Wi-Fi');
+        $this->assertFalse($result['successful']);
+        $this->assertSame(['-Action', 'Restart', '-InterfaceName', 'Wi-Fi'], array_slice($probe->commands[0]['command'], -4));
+        $this->assertSame(60.0, $probe->commands[0]['timeout']);
+        $this->assertSame(1, $result['exit_code']);
     }
 }

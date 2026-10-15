@@ -15,6 +15,7 @@ class RecoveryService
         private readonly IncidentManager $incidentManager,
         private readonly RecoveryCommandRunner $commands,
         private readonly RecoveryPlan $plan,
+        private readonly RecoveryWaitClock $clock,
     ) {}
 
     public function attempt(Incident $incident): RecoveryAction
@@ -121,7 +122,9 @@ class RecoveryService
         } elseif ($sameAdapter && $after->readingFinished() && $after->platform_supported && $after->diagnosis_code !== $incident->code) {
             $this->incidentManager->synchronize($after, $afterResult['diagnosis']);
         } elseif (! $after->readingFinished()) {
-            $incident->update(['recommended_action' => 'Automatic verification exhausted its reading attempts. The command result is retained, but recovery remains unverified. Review the reading error before retrying the check.']);
+            $limit = data_get($after->probe_meta, 'recovery_verification.retry_policy') === 'reconnect_window'
+                ? 'Automatic verification reached its reconnect limit.' : 'Automatic verification exhausted its reading attempts.';
+            $incident->update(['recommended_action' => $limit.' The command result is retained, but recovery remains unverified. Review the reading error before retrying the check.']);
         } elseif (! $sameAdapter) {
             $incident->update(['recommended_action' => 'The follow-up measured a different adapter. Recovery of '.$before->interface_name.' remains unverified; review the recorded request before running another command.']);
         } elseif ($after->readingFinished() && $sameAdapter) {
@@ -143,49 +146,86 @@ class RecoveryService
     {
         $attempts = max(1, min(3, (int) config('netrescue.verification.attempts', 3)));
         $delay = max(0, min(5, (float) config('netrescue.verification.retry_delay_seconds', 1)));
+        $timeouts = app(NetworkRequestTimeout::class);
+        $window = $timeouts->reconnectSeconds();
+        $canUseWindow = $attempts > 1 && $window > 0 && $mayBeReconnecting && filled($adapter)
+            && in_array($actionCode, ['enable_adapter', 'restart_adapter'], true);
+        $poll = (float) config('netrescue.verification.reconnect_poll_seconds', 2);
+        $poll = is_finite($poll) ? max(1, min(5, $poll)) : 2;
+        $started = $this->clock->now();
+        $windowActive = false;
+        $lastResult = null;
         $previousIds = [];
         $errors = [];
-        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
-            if ($attempt > 1 && $delay > 0) {
-                usleep((int) ($delay * 1000000));
+        // Monotonic time bounds retries even when Carbon timestamps are frozen.
+        // The count cap is a final backstop; transient reads do not consume a
+        // pretend 20-second wait just because their process allowance was 20s.
+        for ($attempt = 1; $attempt <= 60; $attempt++) {
+            if ($attempt > 1) {
+                $remaining = $window - ($this->clock->now() - $started);
+                if ($windowActive && $remaining <= 0) {
+                    return $this->endReconnectWindow($lastResult, $started);
+                }
+                $this->clock->wait($windowActive ? min($poll, $remaining) : $delay);
+                if ($windowActive && $this->clock->now() - $started >= $window) {
+                    return $this->endReconnectWindow($lastResult, $started);
+                }
             }
-            $configurationTimeout = null;
-            if ($attempt === 1 && $attempts > 1 && $mayBeReconnecting && filled($adapter)
-                && in_array($actionCode, ['enable_adapter', 'restart_adapter'], true)) {
-                $quickBudget = (float) config('netrescue.verification.initial_configuration_seconds', 5);
-                if (! is_finite($quickBudget) || $quickBudget <= 0) $quickBudget = 5;
-                $configurationTimeout = min($quickBudget, (float) config('netrescue.timeouts.powershell_seconds', 20));
+            $configurationTimeout = (float) config('netrescue.timeouts.powershell_seconds', 20);
+            if ($windowActive) {
+                $configurationTimeout = min($configurationTimeout, $window - ($this->clock->now() - $started));
             }
             try {
-                $result = $configurationTimeout !== null
+                $result = $configurationTimeout < (float) config('netrescue.timeouts.powershell_seconds', 20)
                     ? $this->healthService->run('recovery_after', false, $adapter, $configurationTimeout)
                     : $this->healthService->run('recovery_after', false, $adapter);
             } catch (Throwable $e) {
                 $errors[] = $e->getMessage();
-                if ($attempt === $attempts) {
+                if ((! $windowActive && $attempt >= $attempts) || $attempt === 60
+                    || ($windowActive && $this->clock->now() - $started >= $window)) {
                     throw $e;
                 }
                 continue;
             }
             $check = $result['check'];
-            // Retain each reading and link the latest even if a later retry stops.
-            $meta = $check->probe_meta ?? [];
-            $meta['recovery_verification'] = ['attempt' => $attempt, 'maximum_attempts' => $attempts,
-                'previous_check_ids' => $previousIds, 'reading_errors' => $errors, 'command_ms' => $commandMs,
-                'target_adapter' => $adapter,
-                'configuration_timeout_seconds' => $configurationTimeout ?? (float) config('netrescue.timeouts.powershell_seconds', 20)];
-            $check->update(['probe_meta' => $meta]);
-            $recovery->update(['after_health_check_id' => $check->id]);
             $sameAdapter = blank($adapter) || $adapter === $check->interface_name;
             $reconnecting = $mayBeReconnecting && in_array($actionCode, ['enable_adapter', 'restart_adapter', 'renew_dhcp'], true)
                 && $sameAdapter && in_array($check->diagnosis_code,
                     ['adapter_disabled', 'adapter_disconnected', 'ip_configuration_missing', 'dhcp_issue', 'gateway_missing', 'gateway_unreachable'], true);
-            if ($attempt === $attempts || ($check->readingFinished() && ! $reconnecting)) {
-                return $result;
-            }
+            $transientUnread = ! $check->readingFinished() && ($sameAdapter || blank($check->interface_name))
+                && in_array(data_get($check->probe_meta, 'configuration_error_code'),
+                ['adapter_transitioning', 'adapter_snapshot_changed', 'process_timed_out'], true);
+            if ($canUseWindow && ($reconnecting || $transientUnread)) $windowActive = true;
+            $elapsed = $this->clock->now() - $started;
+            $stop = $check->readingFinished() && ! $reconnecting ? 'settled'
+                : ($windowActive && $elapsed >= $window ? 'reconnect_window_elapsed'
+                    : (! $windowActive && $attempt >= $attempts ? 'reading_limit' : ($attempt === 60 ? 'safety_cap' : null)));
+            $meta = $check->probe_meta ?? [];
+            $meta['recovery_verification'] = [
+                'attempt' => $attempt, 'maximum_attempts' => $windowActive ? null : $attempts,
+                'previous_check_ids' => $previousIds, 'reading_errors' => $errors, 'command_ms' => $commandMs,
+                'command_timeout_seconds' => $timeouts->commandSeconds($actionCode), 'target_adapter' => $adapter,
+                'configuration_timeout_seconds' => $configurationTimeout,
+                'retry_policy' => $windowActive ? 'reconnect_window' : 'attempts',
+                'reconnect_window_seconds' => $windowActive ? $window : null,
+                'elapsed_ms' => round($elapsed * 1000, 2), 'stop_reason' => $stop,
+            ];
+            $check->update(['probe_meta' => $meta]);
+            $recovery->update(['after_health_check_id' => $check->id]);
+            $lastResult = $result;
+            if ($stop !== null) return $result;
             $previousIds[] = $check->id;
         }
         throw new \RuntimeException('Automatic verification did not return a reading.');
+    }
+
+    private function endReconnectWindow(array $result, float $started): array
+    {
+        $meta = $result['check']->probe_meta;
+        $meta['recovery_verification']['stop_reason'] = 'reconnect_window_elapsed';
+        $meta['recovery_verification']['elapsed_ms'] = round(($this->clock->now() - $started) * 1000, 2);
+        $result['check']->update(['probe_meta' => $meta]);
+        return $result;
     }
 
     private function skip(RecoveryAction $recovery, string $reason): RecoveryAction

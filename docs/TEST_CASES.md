@@ -15,6 +15,12 @@
 | Repair command times out | Completion unconfirmed; later recovery observation is separate |
 | Disabled-adapter repair | Same target, command exit 0 and measured recovery needed for verified repair |
 | Open old NR-00029 | Retains its original outcome and intermediate timeout evidence |
+| First follow-up after adapter enable | Normal configuration allowance (20 seconds by default), with no special five-second cutoff |
+| Earlier unread reading followed by recovery | Retained as a contextual retry warning; verified/observed final outcome remains distinct |
+| Command stage output followed by process timeout | Diagnostic markers retained; no invented exit code or verified repair |
+| More than three quick adapter transition readings | Continue within the elapsed reconnect window; do not repeat the command |
+| Reconnect window expires | Stop automatically, retain final error and leave recovery unverified |
+| Later manual reading closes an incident | Exact manual closing evidence shown; earlier automatic result unchanged |
 | Small screen and light/dark mode | Navigation, cards, check table and evidence remain usable |
 
 Use php artisan test for regression checks. The Windows process boundary is
