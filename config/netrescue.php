@@ -18,16 +18,14 @@ return [
         // Re-read after transient reconnect/reader failures; never repeat the command.
         'attempts' => 3,
         'retry_delay_seconds' => 1,
+        // Try a fresh snapshot promptly after link changes. Later readings keep
+        // the normal configuration allowance; the repair command is never repeated.
+        'initial_configuration_seconds' => 5,
     ],
     'health_weights' => [
         'gateway' => 30,
         'internet' => 30,
         'dns' => 20,
         'response' => 20,
-    ],
-    'agent' => [
-        'central_url' => env('NETRESCUE_CENTRAL_URL'),
-        'offline_after_minutes' => (int) env('NETRESCUE_AGENT_OFFLINE_AFTER', 3),
-        'command_expiry_minutes' => (int) env('NETRESCUE_AGENT_COMMAND_EXPIRY', 10),
     ],
 ];

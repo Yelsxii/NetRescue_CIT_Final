@@ -1,7 +1,6 @@
 <?php
 
 use App\Http\Controllers\DashboardController;
-use App\Http\Controllers\DeviceController;
 use App\Http\Controllers\HealthCheckController;
 use App\Http\Controllers\IncidentController;
 use App\Http\Controllers\MonitorSettingController;
@@ -11,18 +10,14 @@ use Illuminate\Support\Facades\Route;
 
 /*
 |--------------------------------------------------------------------------
-| CIT Administrator Console
+| Local NetRescue Console
 |--------------------------------------------------------------------------
 | NetRescue is an administrator-only utility. The browser dashboard is used
-| only on the Central CIT computer to monitor the network, devices, and
-| automatically generated incidents.
+| only on the computer running NetRescue. All measurements and repairs are local.
 */
-Route::middleware('central.admin')->group(function () {
+Route::middleware('local.console')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
-    Route::get('/devices', [DeviceController::class, 'index'])->name('devices.index');
-    Route::get('/devices/{device}', [DeviceController::class, 'show'])->name('devices.show');
-    Route::get('/devices/{device}/checks', [DeviceController::class, 'checks'])->name('devices.checks');
-    Route::post('/devices/{device}/recognize', [DeviceController::class, 'recognize'])->name('devices.recognize');
+    Route::get('/checks', [HealthCheckController::class, 'index'])->name('checks.index');
 
     Route::post('/health-checks', [HealthCheckController::class, 'store'])->name('health-checks.store');
     Route::get('/history', [IncidentController::class, 'index'])->name('history.index');

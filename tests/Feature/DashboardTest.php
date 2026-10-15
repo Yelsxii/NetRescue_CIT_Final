@@ -17,7 +17,7 @@ class DashboardTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('Waiting for network measurements');
-        $response->assertSee('Run Central Check');
+        $response->assertSee('Run Check');
     }
 
     public function test_dashboard_displays_real_stored_measurement(): void
@@ -56,7 +56,7 @@ class DashboardTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('100%');
-        $response->assertSee('CIT network operations are stable');
+        $response->assertSee('This computer is connected');
         $response->assertSee('Response times');
         $response->assertSee('100 ms warning threshold');
         $response->assertSee('Slow or failed checks');
@@ -66,3 +66,4 @@ class DashboardTest extends TestCase
         $response->assertSee('100 ms');
     }
 }
+

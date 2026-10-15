@@ -2,9 +2,8 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\AgentCommand;
+use App\Models\Device;
 use App\Models\Incident;
-use App\Models\RecoveryAction;
 use App\Services\Network\NetworkRequestTimeout;
 use App\Services\Network\RecoveryService;
 use Illuminate\Http\RedirectResponse;
@@ -17,41 +16,7 @@ class RecoveryController extends Controller
     {
         $incident->loadMissing(['device', 'latestHealthCheck']);
 
-        if ($incident->device && !$incident->device->is_local) {
-            try {
-                $recovery = RecoveryAction::create([
-                    'device_id' => $incident->device_id,
-                    'incident_id' => $incident->id,
-                    'action_code' => $incident->recovery_action_code,
-                    'action_label' => $this->labelFor($incident->recovery_action_code),
-                    'before_health_check_id' => $incident->latest_health_check_id,
-                    'started_at' => now(),
-                ]);
-
-                AgentCommand::create([
-                    'device_id' => $incident->device_id,
-                    'incident_id' => $incident->id,
-                    'recovery_action_id' => $recovery->id,
-                    'command_code' => $incident->recovery_action_code,
-                    'payload' => [
-                        'requested_from' => 'central_dashboard',
-                        'release' => $incident->code === 'dhcp_issue',
-                        'interface_name' => $incident->latestHealthCheck?->interface_name,
-                    ],
-                    'status' => 'queued',
-                    'queued_at' => now(),
-                    'expires_at' => now()->addMinutes((int) config('netrescue.agent.command_expiry_minutes', 10)),
-                ]);
-            } catch (Throwable $e) {
-                return back()->with('toast', ['type' => 'danger', 'title' => 'Remote recovery could not queue', 'message' => $e->getMessage()]);
-            }
-
-            return back()->with('toast', [
-                'type' => 'success',
-                'title' => 'Repair sent',
-                'message' => $incident->device?->display_name.' will run '.$this->labelFor($incident->recovery_action_code).' and report the measurement.',
-            ]);
-        }
+        abort_unless((int) $incident->device_id === Device::localHost()->id, 404);
 
         try {
             $requestTimeout->prepareRecovery((string) $incident->recovery_action_code, $incident->code);
@@ -74,14 +39,4 @@ class RecoveryController extends Controller
         ]);
     }
 
-    private function labelFor(?string $code): string
-    {
-        return match ($code) {
-            'flush_dns' => 'Clear Windows DNS resolver cache',
-            'renew_dhcp' => 'Renew Windows DHCP configuration',
-            'enable_adapter' => 'Enable the network adapter',
-            'restart_adapter' => 'Restart the network adapter',
-            default => 'Approved NetRescue recovery action',
-        };
-    }
 }

@@ -33,7 +33,7 @@ php artisan test || goto :fail
 
 echo.
 echo [DONE] Setup completed.
-echo Run START_NETRESCUE_CENTRAL_LAN.bat to start the central dashboard and scheduler on your LAN.
+echo Run START_NETRESCUE.bat as Administrator to start local monitoring.
 pause
 exit /b 0
 

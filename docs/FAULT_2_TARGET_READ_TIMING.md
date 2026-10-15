@@ -1,3 +1,5 @@
+> Historical troubleshooting note. The current application monitors this computer only. See README.md and docs/LOCAL_ONLY_MONITORING.md for current startup/scope; old device/agent instructions no longer apply.
+
 # Fault 2: command and target-reading correction
 
 ## Evidence from NR-00028

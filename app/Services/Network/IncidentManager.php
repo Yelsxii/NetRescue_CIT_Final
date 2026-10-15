@@ -3,6 +3,7 @@
 namespace App\Services\Network;
 
 use App\Models\HealthCheck;
+use App\Models\Device;
 use App\Models\Incident;
 use App\Support\NetworkDiagnosis;
 
@@ -11,6 +12,9 @@ class IncidentManager
     public function synchronize(HealthCheck $check, NetworkDiagnosis $diagnosis): ?Incident
     {
         $deviceId = $check->device_id;
+        if ((int) $deviceId !== Device::localHost()->id) {
+            throw new \InvalidArgumentException('Only measurements from this computer can create incidents.');
+        }
 
         if ($diagnosis->code === 'healthy') {
             $this->resolveActiveExcept(null, $check, $deviceId);
@@ -59,6 +63,9 @@ class IncidentManager
 
     public function resolve(Incident $incident, HealthCheck $check, string $kind = 'observed_recovery'): void
     {
+        if ((int) $incident->device_id !== Device::localHost()->id || (int) $check->device_id !== (int) $incident->device_id) {
+            throw new \InvalidArgumentException('Resolution requires an exact reading from this computer.');
+        }
         $incident->update([
             'status' => 'resolved',
             'resolved_at' => $check->checked_at,
@@ -67,34 +74,6 @@ class IncidentManager
             'last_detected_at' => $check->checked_at,
             'latest_health_check_id' => $check->id,
         ]);
-    }
-
-    public function createOfflineIncident(\App\Models\Device $device): Incident
-    {
-        $latestCheckId = HealthCheck::query()
-            ->where('device_id', $device->id)
-            ->latest('checked_at')->orderByDesc('id')
-            ->value('id');
-
-        $incident = Incident::query()->firstOrCreate(
-            ['device_id' => $device->id, 'status' => 'active', 'code' => 'device_offline'],
-            [
-                'title' => 'Endpoint Offline',
-                'severity' => 'high',
-                'first_detected_at' => now(),
-                'last_detected_at' => now(),
-                'occurrence_count' => 1,
-                'latest_health_check_id' => $latestCheckId,
-                'summary' => 'This recognized computer did not answer.',
-                'recommended_action' => 'Check power and the network connection on that computer.',
-            ]
-        );
-
-        if (! $incident->latest_health_check_id && $latestCheckId) {
-            $incident->update(['latest_health_check_id' => $latestCheckId]);
-        }
-
-        return $incident->fresh();
     }
 
     private function resolveActiveExcept(?string $code, HealthCheck $check, ?int $deviceId): void

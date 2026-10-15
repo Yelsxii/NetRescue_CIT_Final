@@ -17,8 +17,8 @@ class MonitorSettingController extends Controller
             'type' => 'success',
             'title' => 'Monitoring settings updated',
             'message' => $settings->enabled
-                ? "Automatic monitoring is enabled every {$settings->interval_minutes} minute(s)."
-                : 'Automatic monitoring is currently disabled.',
+                ? "Automatic checks on this computer are enabled every {$settings->interval_minutes} minute(s)."
+                : 'Automatic checks on this computer are paused.',
         ]);
     }
 }

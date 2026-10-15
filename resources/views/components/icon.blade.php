@@ -11,7 +11,7 @@
         @case('incident')
             <path d="M12 3 3 19h18L12 3Z"/><path d="M12 9v4M12 17h.01"/>
             @break
-        @case('devices')
+        @case('computer')
             <rect x="3" y="5" width="18" height="12" rx="2"/><path d="M8 21h8M12 17v4"/>
             @break
         @case('plus')

@@ -4,7 +4,7 @@
 @endphp
 <header class="record-head">
     <div>
-        <p class="record-kicker">{{ $incident->reference }} · {{ $incident->device?->display_name ?? 'Central computer' }}</p>
+        <p class="record-kicker">{{ $incident->reference }} · This computer</p>
         <h2 id="recordModalTitle">{{ $incident->plainProblem() }}</h2>
         <p class="record-meta">
             <x-status-pill :status="$incident->status" :label="$incident->status === 'resolved' ? 'Closed' : 'Open'" />

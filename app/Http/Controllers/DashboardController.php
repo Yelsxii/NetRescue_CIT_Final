@@ -5,15 +5,15 @@ namespace App\Http\Controllers;
 use App\Models\Device;
 use App\Models\HealthCheck;
 use App\Models\MonitorSetting;
-use App\Services\Network\FleetSummaryService;
+use App\Services\Network\LocalSummaryService;
 
 class DashboardController extends Controller
 {
-    public function __invoke(FleetSummaryService $fleetSummary)
+    public function __invoke(LocalSummaryService $localSummary)
     {
         $settings = MonitorSetting::current();
-        $summary = $fleetSummary->build();
-        $localDevice = Device::localHost();
+        $summary = $localSummary->build();
+        $localDevice = $summary['host'];
         $localLatest = HealthCheck::query()
             ->where('device_id', $localDevice->id)
             ->latest('checked_at')->orderByDesc('id')
@@ -62,11 +62,11 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        if (($summary['fleet_state']['status'] ?? null) === 'healthy') {
+        if (($summary['state']['status'] ?? null) === 'healthy') {
             $slowRows = $networkNow->filter(fn (array $row) => $row['slow'])->values();
             if ($slowRows->isNotEmpty() && $measuredCheck) {
                 $inside = $networkNow->reject(fn (array $row) => $row['slow'] || $row['ok'] === false)->pluck('label');
-                $summary['fleet_state']['message'] = $slowRows->map(function (array $row) {
+                $summary['state']['message'] = $slowRows->map(function (array $row) {
                     return $row['label'].' answered in '.number_format((float) $row['ms'], 1).' ms';
                 })->implode(', ').', above the '.$settings->latency_warning_ms.' ms warning.'
                     .($inside->isNotEmpty() ? ' '.$inside->implode(' and ').' stayed inside the warning.' : '');

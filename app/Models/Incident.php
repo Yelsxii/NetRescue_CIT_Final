@@ -59,7 +59,7 @@ class Incident extends Model
     public function plainDetail(): string
     {
         return match ($this->code) {
-            'device_offline' => 'Central stopped hearing from this computer. It may be off or disconnected.',
+            'device_offline' => 'An older record reported that a computer stopped responding.',
             'slow_network', 'high_latency' => 'The router or this computer answered, but slower than the warning limit.',
             'internet_unreachable', 'wan_unreachable' => 'The local network responded, but the Internet path did not.',
             'device_unreachable' => 'This computer did not answer during the monitoring window.',
@@ -80,9 +80,7 @@ class Incident extends Model
             'renew_dhcp' => $adapter
                 ? ($this->code === 'dhcp_issue' ? 'ipconfig /release "'.$adapter.'", then ipconfig /renew "'.$adapter.'"' : 'ipconfig /renew "'.$adapter.'"')
                 : 'Renew the measured adapter (name unavailable)',
-            'enable_adapter' => $this->device?->is_local
-                ? ($adapter ? 'Enable-NetAdapter -Name "'.$adapter.'" -Confirm:$false -ErrorAction Stop' : 'Enable the measured adapter (name unavailable)')
-                : ($adapter ? 'Enable-NetAdapter -Name "'.$adapter.'"' : 'Enable-NetAdapter'),
+            'enable_adapter' => $adapter ? 'Enable-NetAdapter -Name "'.$adapter.'" -Confirm:$false -ErrorAction Stop' : 'Enable the measured adapter (name unavailable)',
             'restart_adapter' => $adapter ? 'Restart-NetAdapter -Name "'.$adapter.'"' : 'Restart-NetAdapter',
             default => null,
         };
@@ -95,19 +93,7 @@ class Incident extends Model
 
     public function repairTargetReady(): bool
     {
-        $device = $this->device;
-
-        if (! $device?->recognized) {
-            return false;
-        }
-
-        if ($device->is_local) {
-            return true;
-        }
-
-        return $device->connection_type === 'agent'
-            && filled($device->auth_token_hash)
-            && $device->is_online;
+        return $this->device?->device_uuid === Device::LOCAL_UUID;
     }
 
     public function nextStep(): ?string

@@ -43,9 +43,7 @@
             <p class="quiet">Check result reads this incident's adapter again without repeating the repair command.</p>
         @elseif($incident->canRepair())
             <p class="quiet">Available action: <code>{{ $incident->repairCommand() }}</code></p>
-            <p class="quiet">{{ $incident->device?->is_local ? 'Checks the current condition, runs the command if needed, then verifies automatically. Scheduled checks may stay paused.' : 'Queues a command for the endpoint; completion must be reported separately.' }}</p>
-        @elseif($incident->is_active && filled($incident->repairCommand()) && $incident->device && ! $incident->device->is_local)
-            <p class="quiet">This computer is not reporting, so the command cannot be sent.</p>
+            <p class="quiet">Checks the current condition on this computer, runs the command if needed, then verifies automatically. Scheduled checks may stay paused.</p>
         @elseif($incident->is_active)
             <p class="quiet">No repair command is available for this condition.</p>
         @endif
@@ -81,6 +79,9 @@
             @endif
         @endif
         @foreach(['Before' => $attempt->beforeHealthCheck, 'After' => $attempt->afterHealthCheck] as $stage => $evidence)
+            @if($stage === 'After')
+                @include('incidents.verification-readings', ['recovery' => $attempt])
+            @endif
             @if($evidence)
                 <p><b>{{ $stage }}:</b> {{ $evidence->checked_at->format('g:i:s A') }} · {{ $evidence->diagnosis_title ?: $evidence->diagnosis_code }} · IPv4 {{ $evidence->local_ip ?: 'None' }} · Gateway {{ $evidence->gateway_ip ?: 'None' }} · {{ $evidence->interface_name ?: 'Unknown adapter' }}</p>
                 @if(is_numeric($duration = data_get($evidence->probe_meta, 'timings_ms.total')))
@@ -102,6 +103,9 @@
                 <p class="quiet">Command: {{ $previous->execution_status === 'pending' || $previous->execution_status === null ? 'Command result not recorded' : $previous->executionLabel() }}. Outcome: {{ $previous->verification_status === 'pending' || $previous->verification_status === null ? 'Verification result not recorded' : $previous->verificationLabel() }}.</p>
                 @if($previous->command_exit_code !== null)<p class="quiet">Command exit code: {{ $previous->command_exit_code }}</p>@endif
                 @foreach(['Before' => $previous->beforeHealthCheck, 'After' => $previous->afterHealthCheck] as $stage => $evidence)
+                    @if($stage === 'After')
+                        @include('incidents.verification-readings', ['recovery' => $previous])
+                    @endif
                     @if($evidence)
                         <p><b>{{ $stage }}:</b> {{ $evidence->checked_at->format('M j, g:i:s A') }} · {{ $evidence->diagnosis_title ?: $evidence->diagnosis_code }} · IPv4 {{ $evidence->local_ip ?: 'None' }} · {{ $evidence->interface_name ?: 'Unknown adapter' }}</p>
                     @endif

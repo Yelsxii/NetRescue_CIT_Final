@@ -27,6 +27,20 @@ class RecoveryAction extends Model
     public function incident(): BelongsTo { return $this->belongsTo(Incident::class); }
     public function beforeHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'before_health_check_id'); }
     public function afterHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'after_health_check_id'); }
+
+    public function earlierVerificationChecks(): \Illuminate\Database\Eloquent\Collection
+    {
+        $ids = collect((array) data_get($this->afterHealthCheck?->probe_meta, 'recovery_verification.previous_check_ids', []))
+            ->filter(fn ($id) => is_int($id) || (is_string($id) && ctype_digit($id)))
+            ->map(fn ($id) => (int) $id)->filter(fn ($id) => $id > 0 && $id !== $this->after_health_check_id)->unique()->values();
+
+        if ($ids->isEmpty()) return (new HealthCheck)->newCollection();
+
+        // Only exact retained readings from this computer are evidence. Do not
+        // search for nearby timestamps or import another computer's reading.
+        return HealthCheck::where('device_id', $this->device_id)->whereIn('id', $ids)
+            ->orderBy('checked_at')->orderBy('id')->get();
+    }
     public function commandTimedOut(): bool
     {
         if ($this->execution_status === 'timed_out') return true;

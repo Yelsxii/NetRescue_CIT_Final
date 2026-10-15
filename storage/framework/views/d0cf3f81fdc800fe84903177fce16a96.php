@@ -16,7 +16,7 @@
     </script>
     <link rel="stylesheet" href="<?php echo e(asset('css/app.css')); ?>">
 </head>
-<body data-latest-check-id="<?php echo e(\App\Models\HealthCheck::query()->latest('checked_at')->value('id') ?? ''); ?>">
+<body data-latest-check-id="<?php echo e(\App\Models\HealthCheck::where('device_id', \App\Models\Device::localHost()->id)->latest('checked_at')->orderByDesc('id')->value('id') ?? ''); ?>">
 <?php
     $hour = now()->hour;
     $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
@@ -63,17 +63,17 @@
 <?php endif; ?>
                 <span class="nav-label">Dashboard</span>
             </a>
-            <a href="<?php echo e(route('devices.index')); ?>" class="nav-link <?php echo e(request()->routeIs('devices.*') ? 'is-active' : ''); ?>" title="Devices">
+            <a href="<?php echo e(route('checks.index')); ?>" class="nav-link <?php echo e(request()->routeIs('checks.*') ? 'is-active' : ''); ?>" title="Checks">
                 <?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'devices','size' => '18']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'history','size' => '18']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('icon'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['name' => 'devices','size' => '18']); ?>
+<?php $component->withAttributes(['name' => 'history','size' => '18']); ?>
 <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
@@ -84,7 +84,7 @@
 <?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
 <?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
 <?php endif; ?>
-                <span class="nav-label">Devices</span>
+                <span class="nav-label">Checks</span>
             </a>
             <a href="<?php echo e(route('history.index')); ?>" class="nav-link <?php echo e(request()->routeIs('history.*') || request()->routeIs('incidents.*') ? 'is-active' : ''); ?>" title="Incidents">
                 <?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
@@ -139,8 +139,8 @@
         <div class="side-user">
             <div class="avatar">CIT</div>
             <div class="side-user-copy">
-                <strong>Central console</strong>
-                <span>Administrator</span>
+                <strong>This computer</strong>
+                <span>Local monitoring</span>
             </div>
         </div>
     </aside>
@@ -153,17 +153,16 @@
                 <button type="button" class="menu-toggle mobile-menu" id="mobileMenuButton" aria-label="Open menu">
                     <span class="menu-lines"><i></i><i></i><i></i></span>
                 </button>
-                <form action="<?php echo e(route('devices.index')); ?>" method="GET" class="topbar-search">
-                    <?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
+                <span class="local-context"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'search','size' => '16']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'computer','size' => '16']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('icon'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['name' => 'search','size' => '16']); ?>
+<?php $component->withAttributes(['name' => 'computer','size' => '16']); ?>
 <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
@@ -173,9 +172,7 @@
 <?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
 <?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
 <?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
-<?php endif; ?>
-                    <input type="text" name="q" value="<?php echo e(request('q')); ?>" placeholder="Search a computer or address" aria-label="Search devices">
-                </form>
+<?php endif; ?> This computer only</span>
             </div>
             <div class="topbar-actions">
                 <time id="appClock" class="app-clock" datetime=""><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
@@ -272,7 +269,7 @@
             <label class="switch-row">
                 <div>
                     <strong>Automatic checks</strong>
-                    <span>A check runs when this interval has passed. The clock looks every minute, then measures only if the setting is due.</span>
+                    <span>Checks this computer at the selected interval while the scheduler is running.</span>
                 </div>
                 <span class="switch-control">
                     <input type="checkbox" name="enabled" value="1" <?php echo e(old('enabled', $settingsModal->enabled) ? 'checked' : ''); ?>>
@@ -328,7 +325,7 @@
             <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
         </div>
         <div class="modal-body">
-            <p id="recoveryModalText">The approved repair runs on the computer this incident belongs to, then the result is checked.</p>
+            <p id="recoveryModalText">The approved repair runs on this computer, then its result is verified automatically.</p>
             <form method="POST" id="recoveryModalForm" class="js-busy-form" data-busy-text="Running the approved repair and checking the result…">
                 <?php echo csrf_field(); ?>
                 <div class="modal-actions">

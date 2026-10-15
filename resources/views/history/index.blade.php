@@ -5,15 +5,9 @@
     <header class="page-head">
         <div>
             <h1>Incidents</h1>
-            <p>Each record shows the observed outcome separately from command execution and repair verification.</p>
+            <p>Incidents on this computer, with observed outcomes and repair verification.</p>
         </div>
         <form method="GET" class="filter-row">
-            <select name="device" aria-label="Filter by computer">
-                <option value="">All computers</option>
-                @foreach($devices as $device)
-                    <option value="{{ $device->id }}" @selected((string) request('device') === (string) $device->id)>{{ $device->display_name }}</option>
-                @endforeach
-            </select>
             <select name="status" aria-label="Filter by status">
                 <option value="">Any status</option>
                 <option value="active" @selected(request('status') === 'active')>Open</option>
@@ -32,10 +26,9 @@
     <section class="table-panel log-panel">
         <div class="table-scroll">
             <table class="data-table incident-table">
-                <colgroup><col style="width:14%"><col style="width:20%"><col style="width:11%"><col style="width:10%"><col style="width:35%"><col style="width:10%"></colgroup>
+                <colgroup><col style="width:23%"><col style="width:17%"><col style="width:12%"><col style="width:38%"><col style="width:10%"></colgroup>
                 <thead>
                     <tr>
-                        <th>Computer</th>
                         <th>Incident</th>
                         <th>Started</th>
                         <th>Duration</th>
@@ -47,16 +40,15 @@
                     @forelse($incidents as $incident)
                         @php($story = $incident->story())
                         <tr data-href="{{ route('incidents.show', $incident) }}">
-                            <td>{{ $incident->device?->display_name ?? 'Central network' }}</td>
                             <td>{{ $incident->plainProblem() }}</td>
-                            <td>{{ $incident->first_detected_at->format('g:i:s A') }}</td>
+                            <td>{{ $incident->first_detected_at->format('M j, g:i:s A') }}</td>
                             <td>{{ $incident->durationLabel() }}</td>
                             <td class="incident-resolution"><p data-story-resolution>{{ $story['resolution'] }}</p><p class="quiet" data-story-repair>{{ $story['repair'] }}</p></td>
                             <td><x-status-pill :status="$incident->status" :label="$incident->status === 'resolved' ? 'Closed' : 'Open'" /></td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="6">No incident matches this filter.</td>
+                            <td colspan="5">No incident matches this filter.</td>
                         </tr>
                     @endforelse
                 </tbody>

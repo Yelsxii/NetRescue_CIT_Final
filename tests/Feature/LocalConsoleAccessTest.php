@@ -5,7 +5,7 @@ namespace Tests\Feature;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
-class CentralConsoleAccessTest extends TestCase
+class LocalConsoleAccessTest extends TestCase
 {
     use RefreshDatabase;
 
@@ -19,7 +19,7 @@ class CentralConsoleAccessTest extends TestCase
         $this->withServerVariables([
             'REMOTE_ADDR' => '203.0.113.10',
             'SERVER_ADDR' => '192.0.2.20',
-        ])->get('/devices')->assertForbidden();
+        ])->get('/checks')->assertForbidden();
 
         $this->withServerVariables([
             'REMOTE_ADDR' => '203.0.113.10',
@@ -37,7 +37,7 @@ class CentralConsoleAccessTest extends TestCase
         ])->assertForbidden();
     }
 
-    public function test_the_central_computer_can_open_the_admin_console(): void
+    public function test_this_computer_can_open_its_console(): void
     {
         $this->withServerVariables([
             'REMOTE_ADDR' => '203.0.113.50',

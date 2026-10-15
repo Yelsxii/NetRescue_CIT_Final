@@ -71,7 +71,6 @@ class CheckStory
             'manual' => 'Manual check',
             'recovery_before' => 'Check before repair',
             'recovery_after' => 'Check after repair',
-            'remote_recovery_after' => 'Endpoint check after repair',
             default => 'Stored check',
         };
     }

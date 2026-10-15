@@ -12,7 +12,7 @@
             <h1>{{ $incident->plainProblem() }}</h1>
             <p>
                 <x-status-pill :status="$incident->status" :label="$incident->status === 'resolved' ? 'Closed' : 'Open'" />
-                <span>{{ $incident->device?->display_name ?? 'Central computer' }}</span>
+                <span>This computer</span>
                 <span>{{ $incident->first_detected_at->format('g:i:s A') }}</span>
                 @if($incident->resolved_at)<span>Closed {{ $incident->resolved_at->format('g:i:s A') }}</span>@endif
                 <span>{{ $incident->durationLabel() }}</span>

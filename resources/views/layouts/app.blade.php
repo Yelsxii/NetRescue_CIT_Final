@@ -16,7 +16,7 @@
     </script>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
-<body data-latest-check-id="{{ \App\Models\HealthCheck::query()->latest('checked_at')->value('id') ?? '' }}">
+<body data-latest-check-id="{{ \App\Models\HealthCheck::where('device_id', \App\Models\Device::localHost()->id)->latest('checked_at')->orderByDesc('id')->value('id') ?? '' }}">
 @php
     $hour = now()->hour;
     $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
@@ -44,9 +44,9 @@
                 <x-icon name="dashboard" size="18" />
                 <span class="nav-label">Dashboard</span>
             </a>
-            <a href="{{ route('devices.index') }}" class="nav-link {{ request()->routeIs('devices.*') ? 'is-active' : '' }}" title="Devices">
-                <x-icon name="devices" size="18" />
-                <span class="nav-label">Devices</span>
+            <a href="{{ route('checks.index') }}" class="nav-link {{ request()->routeIs('checks.*') ? 'is-active' : '' }}" title="Checks">
+                <x-icon name="history" size="18" />
+                <span class="nav-label">Checks</span>
             </a>
             <a href="{{ route('history.index') }}" class="nav-link {{ request()->routeIs('history.*') || request()->routeIs('incidents.*') ? 'is-active' : '' }}" title="Incidents">
                 <x-icon name="incident" size="18" />
@@ -63,8 +63,8 @@
         <div class="side-user">
             <div class="avatar">CIT</div>
             <div class="side-user-copy">
-                <strong>Central console</strong>
-                <span>Administrator</span>
+                <strong>This computer</strong>
+                <span>Local monitoring</span>
             </div>
         </div>
     </aside>
@@ -77,10 +77,7 @@
                 <button type="button" class="menu-toggle mobile-menu" id="mobileMenuButton" aria-label="Open menu">
                     <span class="menu-lines"><i></i><i></i><i></i></span>
                 </button>
-                <form action="{{ route('devices.index') }}" method="GET" class="topbar-search">
-                    <x-icon name="search" size="16" />
-                    <input type="text" name="q" value="{{ request('q') }}" placeholder="Search a computer or address" aria-label="Search devices">
-                </form>
+                <span class="local-context"><x-icon name="computer" size="16" /> This computer only</span>
             </div>
             <div class="topbar-actions">
                 <time id="appClock" class="app-clock" datetime=""><x-icon name="clock" size="14" /> <b>--:--</b></time>
@@ -119,7 +116,7 @@
             <label class="switch-row">
                 <div>
                     <strong>Automatic checks</strong>
-                    <span>A check runs when this interval has passed. The clock looks every minute, then measures only if the setting is due.</span>
+                    <span>Checks this computer at the selected interval while the scheduler is running.</span>
                 </div>
                 <span class="switch-control">
                     <input type="checkbox" name="enabled" value="1" {{ old('enabled', $settingsModal->enabled) ? 'checked' : '' }}>
@@ -175,7 +172,7 @@
             <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
         </div>
         <div class="modal-body">
-            <p id="recoveryModalText">The approved repair runs on the computer this incident belongs to, then the result is checked.</p>
+            <p id="recoveryModalText">The approved repair runs on this computer, then its result is verified automatically.</p>
             <form method="POST" id="recoveryModalForm" class="js-busy-form" data-busy-text="Running the approved repair and checking the result…">
                 @csrf
                 <div class="modal-actions">

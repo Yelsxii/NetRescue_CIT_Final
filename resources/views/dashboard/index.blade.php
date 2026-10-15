@@ -4,35 +4,27 @@
 <div class="page-fit dashboard">
     <header class="dash-head">
         <div class="dash-copy">
-            <h1>{{ $summary['fleet_state']['title'] }}</h1>
-            <p>{{ $summary['fleet_state']['message'] }}</p>
+            <h1>{{ $summary['state']['title'] }}</h1>
+            <p>{{ $summary['state']['message'] }}</p>
         </div>
         <div class="dash-actions">
             @if($settings->enabled && $nextCheckAt)
                 <span class="next-chip">Next check <b data-next-check="{{ $nextCheckAt->toIso8601String() }}">…</b></span>
             @endif
-            <form action="{{ route('health-checks.store') }}" method="POST" class="js-busy-form" data-busy-text="Checking the Central computer network…">
+            <form action="{{ route('health-checks.store') }}" method="POST" class="js-busy-form" data-busy-text="Checking this computer's network…">
                 @csrf
-                <button class="button button-primary" type="submit"><x-icon name="refresh" size="15" /> Run Central Check</button>
+                <button class="button button-primary" type="submit"><x-icon name="refresh" size="15" /> Run Check</button>
             </form>
         </div>
     </header>
 
-    <section class="stat-row" aria-label="Current totals">
+    <section class="stat-row local-stats" aria-label="This computer's monitoring summary">
         <article class="stat-card stat-a">
-            <span class="stat-mark"><x-icon name="online" size="22" /></span>
+            <span class="stat-mark"><x-icon name="computer" size="22" /></span>
             <div class="stat-copy">
-                <span>Reporting</span>
-                <strong>{{ $summary['stats']['online'] }}</strong>
-                <small>out of {{ $summary['stats']['total'] }}</small>
-            </div>
-        </article>
-        <article class="stat-card stat-b">
-            <span class="stat-mark"><x-icon name="offline" size="22" /></span>
-            <div class="stat-copy">
-                <span>Not reporting</span>
-                <strong>{{ $summary['stats']['offline'] }}</strong>
-                <small>out of {{ $summary['stats']['total'] }}</small>
+                <span>This computer</span>
+                <strong class="host-name">{{ gethostname() ?: $localDevice->display_name }}</strong>
+                <small>Local network monitoring</small>
             </div>
         </article>
         <article class="stat-card stat-c">
@@ -48,7 +40,7 @@
             <div class="stat-copy">
                 <span>Open incidents</span>
                 <strong>{{ $summary['stats']['active_incidents'] }}</strong>
-                <small>{{ $summary['problem_groups']->isEmpty() ? 'None open' : $summary['problem_groups']->count().' grouped '.\Illuminate\Support\Str::plural('problem', $summary['problem_groups']->count()) }}</small>
+                <small>On this computer</small>
             </div>
         </article>
     </section>
@@ -115,7 +107,7 @@
             @else
                 <div class="empty-chart">
                     <strong>No measurement yet</strong>
-                    <span>Run Central Check to compare this computer with the warning.</span>
+                    <span>Run Check to measure this computer's network connection.</span>
                 </div>
             @endif
         </article>
@@ -183,14 +175,14 @@
                 @empty
                 @endforelse
             @else
-                <p class="quiet">Run Central Check to measure this computer.</p>
+                <p class="quiet">Run Check to measure this computer.</p>
             @endif
         </article>
 
         <article class="table-panel log-panel">
             <div class="panel-title compact">
                 <div><h2>Latest checks</h2></div>
-                <a href="{{ route('devices.checks', $localDevice) }}">All checks</a>
+                <a href="{{ route('checks.index') }}">All checks</a>
             </div>
             <x-check-table :checks="$recentChecks" :warning="$settings->latency_warning_ms" />
         </article>

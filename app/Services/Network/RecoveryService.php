@@ -3,6 +3,7 @@
 namespace App\Services\Network;
 
 use App\Models\Incident;
+use App\Models\Device;
 use App\Models\RecoveryAction;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
@@ -18,6 +19,9 @@ class RecoveryService
 
     public function attempt(Incident $incident): RecoveryAction
     {
+        if ((int) $incident->device_id !== Device::localHost()->id) {
+            throw new \RuntimeException('Only incidents from this computer can be repaired.');
+        }
         $ttl = app(NetworkRequestTimeout::class)->recoverySeconds((string) $incident->recovery_action_code, $incident->code) + 30;
         $lock = Cache::lock('netrescue:repair:'.$incident->device_id, $ttl);
         if (! $lock->get()) {
@@ -34,7 +38,7 @@ class RecoveryService
     private function attemptLocked(Incident $incident): RecoveryAction
     {
         if (! $incident->is_active) throw new \RuntimeException('This incident is no longer active.');
-        if ($incident->device && ! $incident->device->is_local) throw new \RuntimeException('Remote recovery must be queued through its agent.');
+        if ((int) $incident->device_id !== Device::localHost()->id) throw new \RuntimeException('Only incidents from this computer can be repaired.');
         $actionCode = $incident->recovery_action_code;
         if (! in_array($actionCode, ['flush_dns', 'renew_dhcp', 'enable_adapter', 'restart_adapter'], true)) {
             throw new \RuntimeException('No local recovery action is defined for this incident.');
@@ -145,8 +149,17 @@ class RecoveryService
             if ($attempt > 1 && $delay > 0) {
                 usleep((int) ($delay * 1000000));
             }
+            $configurationTimeout = null;
+            if ($attempt === 1 && $attempts > 1 && $mayBeReconnecting && filled($adapter)
+                && in_array($actionCode, ['enable_adapter', 'restart_adapter'], true)) {
+                $quickBudget = (float) config('netrescue.verification.initial_configuration_seconds', 5);
+                if (! is_finite($quickBudget) || $quickBudget <= 0) $quickBudget = 5;
+                $configurationTimeout = min($quickBudget, (float) config('netrescue.timeouts.powershell_seconds', 20));
+            }
             try {
-                $result = $this->healthService->run('recovery_after', false, $adapter);
+                $result = $configurationTimeout !== null
+                    ? $this->healthService->run('recovery_after', false, $adapter, $configurationTimeout)
+                    : $this->healthService->run('recovery_after', false, $adapter);
             } catch (Throwable $e) {
                 $errors[] = $e->getMessage();
                 if ($attempt === $attempts) {
@@ -159,7 +172,8 @@ class RecoveryService
             $meta = $check->probe_meta ?? [];
             $meta['recovery_verification'] = ['attempt' => $attempt, 'maximum_attempts' => $attempts,
                 'previous_check_ids' => $previousIds, 'reading_errors' => $errors, 'command_ms' => $commandMs,
-                'target_adapter' => $adapter];
+                'target_adapter' => $adapter,
+                'configuration_timeout_seconds' => $configurationTimeout ?? (float) config('netrescue.timeouts.powershell_seconds', 20)];
             $check->update(['probe_meta' => $meta]);
             $recovery->update(['after_health_check_id' => $check->id]);
             $sameAdapter = blank($adapter) || $adapter === $check->interface_name;

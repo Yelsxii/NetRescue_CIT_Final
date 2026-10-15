@@ -100,4 +100,28 @@ class WindowsProbeTransportTest extends TestCase
         $this->assertNull($result['adapter_state']);
         $this->assertFalse($result['adapter_available']);
     }
+
+    public function test_a_short_configuration_budget_does_not_change_later_default_budgets(): void
+    {
+        $probe = $this->probe(['successful' => true, 'output' => '{}', 'error' => '', 'exit_code' => 0]);
+        $probe->collectConfiguration('Wi-Fi', 5.0);
+        $probe->collectConfiguration('Wi-Fi');
+        $probe->collectConfiguration();
+        $probe->collectConfiguration('Wi-Fi', 100.0);
+        $this->assertSame([5.0, 20.0, 20.0, 20.0], array_column($probe->commands, 'timeout'));
+        $this->assertSame(20, config('netrescue.timeouts.powershell_seconds'));
+    }
+
+    public function test_invalid_configuration_budget_is_rejected_before_starting_a_process(): void
+    {
+        foreach ([0.0, -1.0, INF, NAN] as $invalid) {
+            $probe = $this->probe(['successful' => true, 'output' => '{}', 'error' => '', 'exit_code' => 0]);
+            try {
+                $probe->collectConfiguration('Wi-Fi', $invalid);
+                $this->fail('An invalid budget was accepted.');
+            } catch (\InvalidArgumentException $e) {
+                $this->assertSame([], $probe->commands);
+            }
+        }
+    }
 }

@@ -18,7 +18,7 @@ class NetworkHealthService
         private readonly IncidentManager $incidentManager,
     ) {}
 
-    public function run(string $source = 'manual', bool $manageIncidents = true, ?string $interfaceName = null): array
+    public function run(string $source = 'manual', bool $manageIncidents = true, ?string $interfaceName = null, ?float $configurationTimeout = null): array
     {
         $settings = MonitorSetting::current();
         $device = Device::localHost();
@@ -27,7 +27,9 @@ class NetworkHealthService
         $timings = [];
         try {
             $phaseStarted = microtime(true);
-            $configuration = filled($interfaceName) ? $this->probe->collectConfiguration($interfaceName) : $this->probe->collectConfiguration();
+            $configuration = $configurationTimeout !== null
+                ? $this->probe->collectConfiguration($interfaceName, $configurationTimeout)
+                : (filled($interfaceName) ? $this->probe->collectConfiguration($interfaceName) : $this->probe->collectConfiguration());
             $timings['configuration'] = round((microtime(true) - $phaseStarted) * 1000, 2);
             $localIp = $configuration['local_ip'] ?? null;
             $ipAssignment = $this->classifyIp($localIp);

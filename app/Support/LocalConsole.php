@@ -4,14 +4,9 @@ namespace App\Support;
 
 use Illuminate\Http\Request;
 
-class CentralAdmin
+class LocalConsole
 {
-    /**
-     * The admin console belongs to the computer running NetRescue Central.
-     * A request is local when its source address is one of this machine's
-     * own addresses. Other LAN computers keep their agent access, but they
-     * do not become administrators by opening the website.
-     */
+    /** The console is used on the computer running NetRescue. */
     public static function allows(Request $request): bool
     {
         $remote = self::normalize((string) $request->server('REMOTE_ADDR', ''));
@@ -20,6 +15,11 @@ class CentralAdmin
             return false;
         }
 
+        // Localhost requests do not need interface enumeration or a hostname
+        // lookup, especially while the computer's network is disconnected.
+        if (in_array($remote, ['127.0.0.1', '::1', '::ffff:127.0.0.1'], true)) {
+            return true;
+        }
         return in_array($remote, self::machineAddresses($request), true);
     }
 

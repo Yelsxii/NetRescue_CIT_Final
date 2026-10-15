@@ -2,19 +2,19 @@
 
 namespace App\Http\Middleware;
 
-use App\Support\CentralAdmin;
+use App\Support\LocalConsole;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
-class EnsureCentralAdmin
+class EnsureLocalConsole
 {
     public function handle(Request $request, Closure $next): Response
     {
-        if (CentralAdmin::allows($request)) {
+        if (LocalConsole::allows($request)) {
             return $next($request);
         }
 
-        abort(403, 'The NetRescue CIT administration console is restricted to the Central monitoring computer.');
+        abort(403, 'The NetRescue console is available only on the computer running it.');
     }
 }

@@ -5,14 +5,16 @@ namespace App\Http\Controllers;
 use App\Models\HealthCheck;
 use App\Models\Incident;
 use App\Models\MonitorSetting;
+use App\Models\Device;
 
 class StatusController extends Controller
 {
     public function __invoke()
     {
-        $latest = HealthCheck::query()->latest('checked_at')->orderByDesc('id')->first();
+        $host = Device::localHost();
+        $latest = HealthCheck::query()->where('device_id', $host->id)->latest('checked_at')->orderByDesc('id')->first();
         $settings = MonitorSetting::current();
-        $activeIncident = Incident::query()->where('status', 'active')->latest('last_detected_at')->first();
+        $activeIncident = Incident::query()->where('device_id', $host->id)->where('status', 'active')->latest('last_detected_at')->orderByDesc('id')->first();
 
         return response()->json([
             'latest_check_id' => $latest?->id,

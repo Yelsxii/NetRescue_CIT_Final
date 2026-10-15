@@ -1,3 +1,5 @@
+> Historical troubleshooting note. The current application monitors this computer only. See README.md and docs/LOCAL_ONLY_MONITORING.md for current startup/scope; old device/agent instructions no longer apply.
+
 # Issue 1 correction: accurate repair evidence and readable records
 
 This patch is based on the NetRescue_CIT_Final(1).zip uploaded in this conversation.

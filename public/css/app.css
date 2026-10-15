@@ -757,3 +757,26 @@ html.theme-light .incident-table thead th { background: #edf2f9; color: #41536d;
 .case-repair-action { flex: none; margin: 0; }
 .case-repair-action .button { height: 30px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
 .repair-request-record { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+
+/* The local console summarizes one computer. */
+.local-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.local-stats .stat-copy { min-width: 0; }
+.local-stats .host-name { font-size: 20px; line-height: 1.2; overflow-wrap: anywhere; }
+.local-context { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+@media (max-width: 700px) {
+    .local-stats { grid-template-columns: 1fr; }
+    .local-context { font-size: 11px; gap: 5px; }
+}
+html.theme-light .local-stats .stat-a strong { color: #1d4ed8; }
+html.theme-light .local-stats .stat-c strong { color: #15803d; }
+html.theme-light .local-stats .stat-d strong { color: #0369a1; }
+html.theme-light .local-stats .stat-copy span,
+html.theme-light .local-stats .stat-copy small { color: #475569; }
+@media (max-width: 980px) {
+    .mobile-menu .menu-lines { display: grid; }
+    .dashboard .workspace { grid-template-columns: minmax(0, 1fr); }
+    .dashboard .workspace .log-panel .table-scroll { max-width: 100%; overflow-x: auto; }
+}
+@media (max-width: 520px) {
+    .topbar .local-context { display: none; }
+}

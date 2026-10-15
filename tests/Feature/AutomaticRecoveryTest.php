@@ -157,7 +157,8 @@ class AutomaticRecoveryTest extends TestCase
     {
         $probe = Mockery::mock(NetworkProbeService::class);
         $probe->shouldReceive('collectConfiguration')->once()->withNoArgs()->andReturn($this->disabled());
-        $probe->shouldReceive('collectConfiguration')->twice()->with('Wi-Fi')->andReturn($this->disabled(), $this->healthy());
+        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi')->andReturn($this->disabled());
+        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi', 5.0)->andReturn($this->healthy());
         $probe->shouldReceive('probeGateway')->once()->andReturn(['reachable' => true, 'latency_ms' => 2, 'error' => null]);
         $probe->shouldReceive('probeInternet')->once()->andReturn(['reachable' => true, 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null]);
         $probe->shouldReceive('probeDns')->once()->andReturn(['operational' => true, 'latency_ms' => 30, 'addresses' => ['93.184.215.14'], 'error' => null]);
@@ -251,5 +252,87 @@ class AutomaticRecoveryTest extends TestCase
         $this->post('/incidents/'.$incident->id.'/retest')->assertRedirect('/incidents/'.$incident->id);
         $this->assertSame(0, RecoveryAction::count());
         $this->assertSame('observed_recovery', $incident->fresh()->resolution_kind);
+    }
+
+    public function test_only_the_first_post_enable_configuration_read_gets_the_short_budget(): void
+    {
+        $probe = Mockery::mock(NetworkProbeService::class);
+        $probe->shouldReceive('collectConfiguration')->once()->withNoArgs()->ordered()->andReturn($this->disabled());
+        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi')->ordered()->andReturn($this->disabled());
+        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi', 5.0)->ordered()->andReturn($this->unread());
+        $probe->shouldReceive('collectConfiguration')->once()->with('Wi-Fi')->ordered()->andReturn($this->healthy());
+        $probe->shouldReceive('probeGateway')->once()->andReturn(['reachable' => true, 'latency_ms' => 2, 'error' => null]);
+        $probe->shouldReceive('probeInternet')->once()->andReturn(['reachable' => true, 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null]);
+        $probe->shouldReceive('probeDns')->once()->andReturn(['operational' => true, 'latency_ms' => 30, 'addresses' => [], 'error' => null]);
+        $this->app->instance(NetworkProbeService::class, $probe);
+        $incident = $this->opened(); $this->command();
+        $action = app(RecoveryService::class)->attempt($incident);
+        $this->assertTrue($action->success);
+        $first = $action->earlierVerificationChecks()->sole();
+        $this->assertSame('configuration_unreadable', $first->diagnosis_code);
+        $this->assertEquals(5.0, data_get($first->probe_meta, 'recovery_verification.configuration_timeout_seconds'));
+        $this->assertEquals(20.0, data_get($action->afterHealthCheck->probe_meta, 'recovery_verification.configuration_timeout_seconds'));
+        $this->assertSame(20, config('netrescue.timeouts.powershell_seconds'));
+        $this->assertSame('verified_repair', $incident->fresh()->resolution_kind);
+    }
+
+    public function test_a_single_allowed_read_keeps_the_full_budget(): void
+    {
+        config(['netrescue.verification.attempts' => 1]);
+        $probe = Mockery::mock(NetworkProbeService::class);
+        $probe->shouldReceive('collectConfiguration')->once()->withNoArgs()->andReturn($this->disabled());
+        $probe->shouldReceive('collectConfiguration')->twice()->with('Wi-Fi')->andReturn($this->disabled(), $this->healthy());
+        $probe->shouldReceive('probeGateway')->once()->andReturn(['reachable' => true, 'latency_ms' => 2, 'error' => null]);
+        $probe->shouldReceive('probeInternet')->once()->andReturn(['reachable' => true, 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null]);
+        $probe->shouldReceive('probeDns')->once()->andReturn(['operational' => true, 'latency_ms' => 30, 'addresses' => [], 'error' => null]);
+        $this->app->instance(NetworkProbeService::class, $probe);
+        $incident = $this->opened(); $this->command();
+        $action = app(RecoveryService::class)->attempt($incident);
+        $this->assertTrue($action->success);
+        $this->assertEquals(20.0, data_get($action->afterHealthCheck->probe_meta, 'recovery_verification.configuration_timeout_seconds'));
+    }
+
+    public function test_a_prior_twenty_second_timeout_is_visible_without_changing_verified_history(): void
+    {
+        $this->readings($this->disabled(), $this->disabled(), $this->unread(), $this->healthy());
+        $incident = $this->opened(); $this->command();
+        $action = app(RecoveryService::class)->attempt($incident);
+        $first = $action->earlierVerificationChecks()->sole();
+        $meta = $first->probe_meta;
+        $meta['timings_ms'] = ['configuration' => 20676.2, 'total' => 20676.22];
+        $meta['errors'] = ['The configuration process exceeded the timeout of 20 seconds.'];
+        unset($meta['recovery_verification']['configuration_timeout_seconds']);
+        $first->update(['probe_meta' => $meta]);
+        foreach ([[], ['X-Panel' => '1']] as $headers) {
+            $this->get('/incidents/'.$incident->id, $headers)->assertOk()
+                ->assertSeeText('Earlier automatic reading 1:')
+                ->assertSeeText('Reading duration: 20.68 seconds.')
+                ->assertSeeText('Measured adapter: Not obtained')
+                ->assertSeeText('Requested adapter: Wi-Fi')
+                ->assertSeeText('Reading error: The configuration process exceeded the timeout of 20 seconds.')
+                ->assertSeeInOrder(['Before:', 'Earlier automatic reading 1:', 'After:']);
+        }
+        $this->assertTrue($action->fresh()->success);
+        $this->assertSame(0, $action->fresh()->command_exit_code);
+        $this->assertSame('verified', $action->fresh()->verification_status);
+        $this->assertSame('verified_repair', $incident->fresh()->resolution_kind);
+    }
+
+    public function test_earlier_readings_use_exact_ids_and_exclude_another_computer(): void
+    {
+        $this->readings($this->disabled(), $this->disabled(), $this->unread(), $this->healthy());
+        $incident = $this->opened(); $this->command();
+        $action = app(RecoveryService::class)->attempt($incident);
+        $first = $action->earlierVerificationChecks()->sole();
+        $neighbor = $first->replicate(); $neighbor->save();
+        $otherDevice = Device::localHost()->replicate();
+        $otherDevice->fill(['device_uuid' => 'other-verification-fixture', 'is_local' => false]); $otherDevice->save();
+        $foreign = $first->replicate(); $foreign->device_id = $otherDevice->id; $foreign->save();
+        $after = $action->afterHealthCheck;
+        $meta = $after->probe_meta;
+        $meta['recovery_verification']['previous_check_ids'] = [$first->id, (string) $first->id, $foreign->id, $after->id, 'bad', -1];
+        $after->update(['probe_meta' => $meta]);
+        $this->assertSame([$first->id], $action->fresh()->earlierVerificationChecks()->modelKeys());
+        $this->assertFalse($action->fresh()->earlierVerificationChecks()->contains('id', $neighbor->id));
     }
 }

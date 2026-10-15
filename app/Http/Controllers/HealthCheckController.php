@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Incident;
+use App\Models\Device;
+use App\Models\MonitorSetting;
 use App\Services\Network\NetworkHealthService;
 use App\Services\Network\NetworkRequestTimeout;
 use Illuminate\Http\RedirectResponse;
@@ -10,12 +12,19 @@ use Throwable;
 
 class HealthCheckController extends Controller
 {
+    public function index()
+    {
+        $checks = Device::localHost()->healthChecks()->paginate(40);
+        $warningMs = (int) MonitorSetting::current()->latency_warning_ms;
+        return view('checks.index', compact('checks', 'warningMs'));
+    }
+
     public function store(NetworkHealthService $healthService, NetworkRequestTimeout $requestTimeout): RedirectResponse
     {
         try {
             $requestTimeout->prepareCheck();
         } catch (Throwable $e) {
-            return back()->with('toast', ['type' => 'warning', 'title' => 'Central check could not start', 'message' => $e->getMessage()]);
+            return back()->with('toast', ['type' => 'warning', 'title' => 'Check could not start', 'message' => $e->getMessage()]);
         }
         $result = $healthService->run('manual', true);
         $check = $result['check'];
@@ -26,9 +35,9 @@ class HealthCheckController extends Controller
         return back()->with('toast', [
             'type' => $type,
             'title' => match (true) {
-                $check->diagnosis_code === 'healthy' => 'Central check completed',
+                $check->diagnosis_code === 'healthy' => 'Check completed',
                 $unread => 'Reading did not finish',
-                default => 'Condition detected during Central check',
+                default => 'Condition detected during check',
             },
             'message' => $unread
                 ? $check->diagnosis_summary
@@ -38,15 +47,7 @@ class HealthCheckController extends Controller
 
     public function retest(Incident $incident, NetworkHealthService $healthService, NetworkRequestTimeout $requestTimeout): RedirectResponse
     {
-        $incident->loadMissing('device');
-
-        if ($incident->device && ! $incident->device->is_local) {
-            return back()->with('toast', [
-                'type' => 'warning',
-                'title' => 'Remote device re-test is not automated in this version',
-                'message' => 'This agent-free version relies on fresh observed measurements from the network. Use the device page to review the latest condition.',
-            ]);
-        }
+        abort_unless((int) $incident->device_id === Device::localHost()->id, 404);
 
         try {
             $requestTimeout->prepareCheck();

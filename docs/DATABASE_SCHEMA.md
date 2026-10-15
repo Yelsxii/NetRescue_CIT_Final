@@ -1,22 +1,26 @@
-# Database Schema Summary — NetRescue Central 2.1
+# Database schema — local monitoring
 
-## devices
-One row per monitored endpoint. Stores endpoint identity, connection type (`local` or `agent`), latest reported network identity, last health score/status, heartbeat timestamps, and the hashed agent token.
+## Active data
 
-## health_checks
-Actual local or agent-submitted network measurements. Each row belongs to a device and stores adapter/IP/gateway/DNS details, probe outcomes, latencies, health score, diagnosis, and limited probe metadata.
+- devices: the existing fixed local UUID identifies this installation's
+  computer. Its row retains current network facts and links existing history.
+- health_checks: local adapter/configuration, prerequisite-aware probe results,
+  timings, diagnosis and score. UI/summary queries require the local device ID.
+- incidents: local detected conditions with exact opening and closing checks.
+- recovery_actions: local command status, verification outcome and before/after
+  check IDs. Intermediate verification IDs/timings live in linked probe_meta.
+- monitor_settings: this computer's interval, enabled flag, warning threshold,
+  DNS test name and Internet test targets.
 
-## incidents
-Automatically generated primary network conditions per device. Stores first/last detection, severity, active/resolved status, observation count, recommended action, and optional safe recovery code.
+## Preserved legacy schema
 
-## recovery_actions
-Stores approved recovery attempts and the linked before/after health checks. Remote recovery records remain pending until the endpoint agent returns verification evidence.
+Existing enrollment_codes, agent_commands and old device columns/rows are not
+used. Their models, controllers, services, routes and schedulers are removed.
+They remain only to avoid destructive changes to an existing database and keep
+historical migrations coherent. The local-only update executes no SQL, drops
+no tables and rewrites no incident or recovery outcomes.
 
-## monitor_settings
-Central monitoring configuration: local-host scheduler interval, latency warning threshold, DNS test domain, and external Internet targets.
-
-## enrollment_codes
-Temporary pairing codes used to authorize new Windows endpoint agents.
-
-## agent_commands
-Queue of approved remote recovery commands for endpoint agents. The queue only stores predefined command codes, not arbitrary shell commands.
+Existing local records remain associated with the same Device::LOCAL_UUID and
+IDs. Old remote rows are excluded even if their recognized/is_local flags are
+incorrect; public queries and actions use the actual local identity, not a
+collection of rows tagged local or recognized.

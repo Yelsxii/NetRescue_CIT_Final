@@ -3,15 +3,9 @@
     <header class="page-head">
         <div>
             <h1>Incidents</h1>
-            <p>Each record shows the observed outcome separately from command execution and repair verification.</p>
+            <p>Incidents on this computer, with observed outcomes and repair verification.</p>
         </div>
         <form method="GET" class="filter-row">
-            <select name="device" aria-label="Filter by computer">
-                <option value="">All computers</option>
-                <?php $__currentLoopData = $devices; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $device): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
-                    <option value="<?php echo e($device->id); ?>" <?php if((string) request('device') === (string) $device->id): echo 'selected'; endif; ?>><?php echo e($device->display_name); ?></option>
-                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
-            </select>
             <select name="status" aria-label="Filter by status">
                 <option value="">Any status</option>
                 <option value="active" <?php if(request('status') === 'active'): echo 'selected'; endif; ?>>Open</option>
@@ -30,10 +24,9 @@
     <section class="table-panel log-panel">
         <div class="table-scroll">
             <table class="data-table incident-table">
-                <colgroup><col style="width:14%"><col style="width:20%"><col style="width:11%"><col style="width:10%"><col style="width:35%"><col style="width:10%"></colgroup>
+                <colgroup><col style="width:23%"><col style="width:17%"><col style="width:12%"><col style="width:38%"><col style="width:10%"></colgroup>
                 <thead>
                     <tr>
-                        <th>Computer</th>
                         <th>Incident</th>
                         <th>Started</th>
                         <th>Duration</th>
@@ -45,9 +38,8 @@
                     <?php $__empty_1 = true; $__currentLoopData = $incidents; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $incident): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                         <?php ($story = $incident->story()); ?>
                         <tr data-href="<?php echo e(route('incidents.show', $incident)); ?>">
-                            <td><?php echo e($incident->device?->display_name ?? 'Central network'); ?></td>
                             <td><?php echo e($incident->plainProblem()); ?></td>
-                            <td><?php echo e($incident->first_detected_at->format('g:i:s A')); ?></td>
+                            <td><?php echo e($incident->first_detected_at->format('M j, g:i:s A')); ?></td>
                             <td><?php echo e($incident->durationLabel()); ?></td>
                             <td class="incident-resolution"><p data-story-resolution><?php echo e($story['resolution']); ?></p><p class="quiet" data-story-repair><?php echo e($story['repair']); ?></p></td>
                             <td><?php if (isset($component)) { $__componentOriginal0f0f6d48f1e3fcafba02703e0b070890 = $component; } ?>
@@ -73,7 +65,7 @@
                         </tr>
                     <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                         <tr>
-                            <td colspan="6">No incident matches this filter.</td>
+                            <td colspan="5">No incident matches this filter.</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

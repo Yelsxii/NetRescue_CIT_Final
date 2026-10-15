@@ -5,7 +5,6 @@ namespace App\Console\Commands;
 use App\Models\Device;
 use App\Models\HealthCheck;
 use App\Models\MonitorSetting;
-use App\Services\Network\NeighborWatch;
 use App\Services\Network\NetworkHealthService;
 use Illuminate\Console\Command;
 
@@ -15,7 +14,7 @@ class RunNetworkMonitor extends Command
 
     protected $description = 'Run the automated NetRescue health monitor when it is due.';
 
-    public function handle(NetworkHealthService $healthService, NeighborWatch $neighbors): int
+    public function handle(NetworkHealthService $healthService): int
     {
         $settings = MonitorSetting::current();
 
@@ -29,7 +28,7 @@ class RunNetworkMonitor extends Command
         $lastAutomatic = HealthCheck::query()
             ->where('device_id', $localDevice->id)
             ->where('source', 'automatic')
-            ->latest('checked_at')
+            ->latest('checked_at')->orderByDesc('id')
             ->first();
 
         if (! $settings->isDue($lastAutomatic?->checked_at) && ! $this->option('force')) {
@@ -41,13 +40,6 @@ class RunNetworkMonitor extends Command
 
         $result = $healthService->run('automatic', true);
         $check = $result['check'];
-
-        try {
-            $neighbors->observe();
-            $neighbors->checkRecognized();
-        } catch (\Throwable $exception) {
-            report($exception);
-        }
 
         $this->info(sprintf(
             'Health check #%d completed: %d%% %s - %s',

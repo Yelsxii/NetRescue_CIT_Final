@@ -13,7 +13,7 @@ class NetworkProbeService
         return PHP_OS_FAMILY === 'Windows';
     }
 
-    public function collectConfiguration(?string $interfaceName = null): array
+    public function collectConfiguration(?string $interfaceName = null, ?float $configurationTimeout = null): array
     {
         if (!$this->isSupportedPlatform()) {
             return $this->emptyConfiguration('NetRescue network probes require Windows 10 or Windows 11.', false);
@@ -30,7 +30,14 @@ class NetworkProbeService
         if (filled($interfaceName)) {
             $command = array_merge($command, ['-InterfaceName', $this->adapterName($interfaceName)]);
         }
-        $result = $this->runProcess($command, (float) config('netrescue.timeouts.powershell_seconds', 20));
+        $timeout = (float) config('netrescue.timeouts.powershell_seconds', 20);
+        if ($configurationTimeout !== null) {
+            if (! is_finite($configurationTimeout) || $configurationTimeout <= 0) {
+                throw new \InvalidArgumentException('The configuration timeout must be a positive finite number.');
+            }
+            $timeout = min($timeout, $configurationTimeout);
+        }
+        $result = $this->runProcess($command, $timeout);
 
         if (!$result['successful']) {
             return $this->emptyConfiguration($result['error'] ?: 'Windows network configuration could not be read.');

@@ -1,3 +1,5 @@
+> Historical troubleshooting note. The current application monitors this computer only. See README.md and docs/LOCAL_ONLY_MONITORING.md for current startup/scope; old device/agent instructions no longer apply.
+
 # Fault 2: timeout evidence and startup comparison
 
 NR-00027 records a 7.98 s precheck, a 35.98 s enable process that exceeded its
