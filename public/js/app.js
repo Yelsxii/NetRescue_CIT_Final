@@ -346,6 +346,85 @@
         chart.addEventListener('mouseleave', hide);
     });
 
+    const closeMenus = (except) => {
+        qsa('.menu-select.is-open').forEach((menu) => {
+            if (menu === except) return;
+            menu.classList.remove('is-open');
+            qs('.menu-select-trigger', menu)?.setAttribute('aria-expanded', 'false');
+        });
+    };
+
+    qsa('.filter-row select').forEach((select) => {
+        const menu = document.createElement('div');
+        menu.className = 'menu-select';
+        select.parentNode.insertBefore(menu, select);
+        menu.append(select);
+        select.classList.add('menu-select-native');
+        select.tabIndex = -1;
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'menu-select-trigger';
+        trigger.setAttribute('aria-haspopup', 'listbox');
+        trigger.setAttribute('aria-expanded', 'false');
+        if (select.getAttribute('aria-label')) trigger.setAttribute('aria-label', select.getAttribute('aria-label'));
+        const label = document.createElement('span');
+        const caret = document.createElement('i');
+        caret.className = 'menu-select-caret';
+        caret.setAttribute('aria-hidden', 'true');
+        trigger.append(label, caret);
+
+        const panel = document.createElement('div');
+        panel.className = 'menu-select-panel';
+        panel.setAttribute('role', 'listbox');
+
+        const sync = () => {
+            const current = select.selectedOptions[0];
+            label.textContent = current ? current.textContent : '';
+            qsa('.menu-select-option', panel).forEach((option) => {
+                const on = option.dataset.value === select.value;
+                option.classList.toggle('is-selected', on);
+                option.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+        };
+
+        [...select.options].forEach((option, index) => {
+            const item = document.createElement('button');
+            item.type = 'button';
+            item.className = 'menu-select-option';
+            item.setAttribute('role', 'option');
+            item.dataset.value = option.value;
+            item.style.animationDelay = `${index * 32}ms`;
+            item.textContent = option.textContent;
+            item.addEventListener('click', () => {
+                select.value = option.value;
+                select.dispatchEvent(new Event('change', { bubbles: true }));
+                sync();
+                closeMenus();
+            });
+            panel.append(item);
+        });
+
+        trigger.addEventListener('click', () => {
+            const open = menu.classList.contains('is-open');
+            closeMenus();
+            if (!open) {
+                menu.classList.add('is-open');
+                trigger.setAttribute('aria-expanded', 'true');
+            }
+        });
+
+        menu.append(trigger, panel);
+        sync();
+    });
+
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('.menu-select')) closeMenus();
+    });
+    document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') closeMenus();
+    });
+
     document.addEventListener('click', (event) => {
         const button = event.target.closest('[data-copy-value]');
         if (!button) return;

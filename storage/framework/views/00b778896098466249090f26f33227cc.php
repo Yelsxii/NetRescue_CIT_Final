@@ -37,6 +37,8 @@
 
     <section class="stat-row local-stats" aria-label="This computer's monitoring summary">
         <article class="stat-card stat-a">
+            <span class="stat-sheen" aria-hidden="true"></span>
+            <span class="stat-sheen-high" aria-hidden="true"></span>
             <span class="stat-mark"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
 <?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'computer','size' => '22']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
@@ -64,6 +66,8 @@
             </div>
         </article>
         <article class="stat-card stat-c">
+            <span class="stat-sheen" aria-hidden="true"></span>
+            <span class="stat-sheen-high" aria-hidden="true"></span>
             <span class="stat-mark"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
 <?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'shield','size' => '22']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
@@ -91,6 +95,8 @@
             </div>
         </article>
         <article class="stat-card stat-d">
+            <span class="stat-sheen" aria-hidden="true"></span>
+            <span class="stat-sheen-high" aria-hidden="true"></span>
             <span class="stat-mark"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
 <?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'incident','size' => '22']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>

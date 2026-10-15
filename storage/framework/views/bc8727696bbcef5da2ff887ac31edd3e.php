@@ -6,6 +6,15 @@
     $previousAttempts = $attempt
         ? $incident->recoveryActions()->where('id', '!=', $attempt->id)->with(['beforeHealthCheck', 'afterHealthCheck'])->get()
         : collect();
+    $closingRestatesRepair = ! $incident->is_active
+        && $closingCheck
+        && (bool) $attempt?->success
+        && ! in_array($incident->resolution_kind, ['already_recovered', 'superseded'], true)
+        && $attempt->beforeHealthCheck?->diagnosis_code !== 'healthy';
+    $closingFact = $closingCheck
+        ? \App\Support\CheckStory::focus($incident->code, $closingCheck, $warningMs)
+        : null;
+    $closingFactIsGeneric = $closingCheck && $closingFact === $closingCheck->diagnosis_summary;
 ?>
 <section class="detail-stack record-grid">
     <article class="case-card">
@@ -16,7 +25,7 @@
             <?php if($incident->code === 'dhcp_issue'): ?>
                 <p class="quiet">This is an automatic fallback address. No normal DHCP address was obtained in this reading.</p>
             <?php endif; ?>
-            <p class="quiet">Gateway: <?php echo e($openingCheck->gateway_ip ?: 'None reported'); ?> · Adapter: <?php echo e($openingCheck->interface_name ?: 'Unknown'); ?></p>
+            <p class="quiet">Gateway <?php echo e($openingCheck->gateway_ip ?: 'not reported'); ?> · Adapter <?php echo e($openingCheck->interface_name ?: 'not reported'); ?></p>
         <?php else: ?>
             <p class="case-fact"><?php echo e($incident->plainDetail()); ?></p>
             <p class="quiet">The exact opening measurement is not available for this record.</p>
@@ -53,19 +62,26 @@
     </article>
 
     <article class="case-card">
-        <h2><?php echo e($incident->is_active ? 'Current outcome' : 'Resolution observed'); ?></h2>
-        <p class="case-fact" data-story-resolution><?php echo e($story['resolution']); ?></p>
+        <h2><?php echo e($incident->is_active ? 'Current outcome' : ($closingRestatesRepair ? 'Closing check' : 'Resolution observed')); ?></h2>
+        <?php if (! ($closingRestatesRepair)): ?>
+            <p class="case-fact" data-story-resolution><?php echo e($story['resolution']); ?></p>
+        <?php endif; ?>
         <?php if(! $incident->is_active && $attempt?->verification_status === 'unread' && $attempt->afterHealthCheck && $closingCheck && $attempt->after_health_check_id !== $closingCheck->id): ?>
             <p class="quiet">Automatic verification ended at <?php echo e($attempt->afterHealthCheck->checked_at->format('g:i:s A')); ?> without a completed reading. The separate closing measurement is shown below.</p>
         <?php endif; ?>
         <?php if(! $incident->is_active && $attempt?->beforeHealthCheck?->diagnosis_code === 'healthy' && $attempt->before_health_check_id !== $closingCheck?->id): ?>
             <p class="case-when">Check before repair · <?php echo e($attempt->beforeHealthCheck->checked_at->format('g:i:s A')); ?></p>
-            <p class="quiet">Already healthy: IPv4 <?php echo e($attempt->beforeHealthCheck->local_ip ?: 'None'); ?> · Gateway <?php echo e($attempt->beforeHealthCheck->gateway_ip ?: 'None'); ?>.</p>
+            <p class="quiet">Already healthy: IPv4 <?php echo e($attempt->beforeHealthCheck->local_ip ?: 'not reported'); ?> · Gateway <?php echo e($attempt->beforeHealthCheck->gateway_ip ?: 'not reported'); ?>.</p>
         <?php endif; ?>
         <?php if(! $incident->is_active && $closingCheck): ?>
             <p class="case-when"><?php echo e(\App\Support\CheckStory::sourceLabel($closingCheck)); ?> · <?php echo e($closingCheck->checked_at->format('g:i:s A')); ?></p>
-            <p class="quiet"><?php echo e($clearedFact); ?></p>
-            <p class="quiet">Gateway: <?php echo e($closingCheck->gateway_ip ?: 'None reported'); ?> · Diagnosis: <?php echo e($closingCheck->diagnosis_title ?: $closingCheck->diagnosis_code); ?></p>
+            <?php if($closingRestatesRepair): ?>
+                <p class="case-fact"><?php echo e($closingCheck->diagnosis_title ?: 'Closing measurement recorded'); ?></p>
+            <?php endif; ?>
+            <?php if($closingFact && ! $closingFactIsGeneric): ?>
+                <p class="quiet"><?php echo e($closingFact); ?></p>
+            <?php endif; ?>
+            <p class="quiet">Gateway <?php echo e($closingCheck->gateway_ip ?: 'not reported'); ?><?php if(! $closingRestatesRepair && filled($closingCheck->diagnosis_title)): ?> · <?php echo e($closingCheck->diagnosis_title); ?><?php endif; ?></p>
         <?php endif; ?>
     </article>
 </section>

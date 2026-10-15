@@ -6,6 +6,15 @@
     $previousAttempts = $attempt
         ? $incident->recoveryActions()->where('id', '!=', $attempt->id)->with(['beforeHealthCheck', 'afterHealthCheck'])->get()
         : collect();
+    $closingRestatesRepair = ! $incident->is_active
+        && $closingCheck
+        && (bool) $attempt?->success
+        && ! in_array($incident->resolution_kind, ['already_recovered', 'superseded'], true)
+        && $attempt->beforeHealthCheck?->diagnosis_code !== 'healthy';
+    $closingFact = $closingCheck
+        ? \App\Support\CheckStory::focus($incident->code, $closingCheck, $warningMs)
+        : null;
+    $closingFactIsGeneric = $closingCheck && $closingFact === $closingCheck->diagnosis_summary;
 @endphp
 <section class="detail-stack record-grid">
     <article class="case-card">
@@ -16,7 +25,7 @@
             @if($incident->code === 'dhcp_issue')
                 <p class="quiet">This is an automatic fallback address. No normal DHCP address was obtained in this reading.</p>
             @endif
-            <p class="quiet">Gateway: {{ $openingCheck->gateway_ip ?: 'None reported' }} · Adapter: {{ $openingCheck->interface_name ?: 'Unknown' }}</p>
+            <p class="quiet">Gateway {{ $openingCheck->gateway_ip ?: 'not reported' }} · Adapter {{ $openingCheck->interface_name ?: 'not reported' }}</p>
         @else
             <p class="case-fact">{{ $incident->plainDetail() }}</p>
             <p class="quiet">The exact opening measurement is not available for this record.</p>
@@ -53,19 +62,26 @@
     </article>
 
     <article class="case-card">
-        <h2>{{ $incident->is_active ? 'Current outcome' : 'Resolution observed' }}</h2>
-        <p class="case-fact" data-story-resolution>{{ $story['resolution'] }}</p>
+        <h2>{{ $incident->is_active ? 'Current outcome' : ($closingRestatesRepair ? 'Closing check' : 'Resolution observed') }}</h2>
+        @unless($closingRestatesRepair)
+            <p class="case-fact" data-story-resolution>{{ $story['resolution'] }}</p>
+        @endunless
         @if(! $incident->is_active && $attempt?->verification_status === 'unread' && $attempt->afterHealthCheck && $closingCheck && $attempt->after_health_check_id !== $closingCheck->id)
             <p class="quiet">Automatic verification ended at {{ $attempt->afterHealthCheck->checked_at->format('g:i:s A') }} without a completed reading. The separate closing measurement is shown below.</p>
         @endif
         @if(! $incident->is_active && $attempt?->beforeHealthCheck?->diagnosis_code === 'healthy' && $attempt->before_health_check_id !== $closingCheck?->id)
             <p class="case-when">Check before repair · {{ $attempt->beforeHealthCheck->checked_at->format('g:i:s A') }}</p>
-            <p class="quiet">Already healthy: IPv4 {{ $attempt->beforeHealthCheck->local_ip ?: 'None' }} · Gateway {{ $attempt->beforeHealthCheck->gateway_ip ?: 'None' }}.</p>
+            <p class="quiet">Already healthy: IPv4 {{ $attempt->beforeHealthCheck->local_ip ?: 'not reported' }} · Gateway {{ $attempt->beforeHealthCheck->gateway_ip ?: 'not reported' }}.</p>
         @endif
         @if(! $incident->is_active && $closingCheck)
             <p class="case-when">{{ \App\Support\CheckStory::sourceLabel($closingCheck) }} · {{ $closingCheck->checked_at->format('g:i:s A') }}</p>
-            <p class="quiet">{{ $clearedFact }}</p>
-            <p class="quiet">Gateway: {{ $closingCheck->gateway_ip ?: 'None reported' }} · Diagnosis: {{ $closingCheck->diagnosis_title ?: $closingCheck->diagnosis_code }}</p>
+            @if($closingRestatesRepair)
+                <p class="case-fact">{{ $closingCheck->diagnosis_title ?: 'Closing measurement recorded' }}</p>
+            @endif
+            @if($closingFact && ! $closingFactIsGeneric)
+                <p class="quiet">{{ $closingFact }}</p>
+            @endif
+            <p class="quiet">Gateway {{ $closingCheck->gateway_ip ?: 'not reported' }}@if(! $closingRestatesRepair && filled($closingCheck->diagnosis_title)) · {{ $closingCheck->diagnosis_title }}@endif</p>
         @endif
     </article>
 </section>

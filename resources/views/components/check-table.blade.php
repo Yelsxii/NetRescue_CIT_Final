@@ -1,19 +1,20 @@
 @props(['checks', 'warning' => 100])
 <div class="table-scroll">
     <table class="data-table check-table">
-        <colgroup><col style="width:12%"><col style="width:17%"><col style="width:17%"><col style="width:22%"><col style="width:32%"></colgroup>
+        <colgroup><col style="width:11%"><col style="width:21%"><col style="width:21%"><col style="width:22%"><col style="width:25%"></colgroup>
         <thead>
             <tr>
                 <th>Time</th>
                 <th>Gateway</th>
                 <th>Internet</th>
                 <th>Name lookup</th>
-                <th>Result</th>
+                <th class="result-cell">Result</th>
             </tr>
         </thead>
         <tbody>
             @forelse($checks as $check)
                 @php
+                    $resultTone = $check->diagnosis_code === 'healthy' ? 'ok' : (in_array($check->severity, ['none', 'low'], true) ? 'warn' : 'bad');
                     $unmeasured = ['code' => 'none', 'label' => '—', 'detail' => 'Not measured'];
                     if ($check->readingFinished()) {
                         $gateway = \App\Support\CheckStory::probeMark($check, 'gateway', (int) $warning);
@@ -28,7 +29,7 @@
                     <td><b class="mark-{{ $gateway['code'] }}">{{ $gateway['label'] }}</b> {{ $gateway['detail'] }}</td>
                     <td><b class="mark-{{ $internet['code'] }}">{{ $internet['label'] }}</b> {{ $internet['detail'] }}</td>
                     <td><b class="mark-{{ $dns['code'] }}">{{ $dns['label'] }}</b> {{ $dns['detail'] }}</td>
-                    <td>{{ $check->diagnosis_title }}</td>
+                    <td class="result-cell"><span class="result-text is-{{ $resultTone }}">{{ $check->diagnosis_title }}</span></td>
                 </tr>
             @empty
                 <tr>

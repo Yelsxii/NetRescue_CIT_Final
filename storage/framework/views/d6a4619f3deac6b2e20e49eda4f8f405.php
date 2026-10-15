@@ -1,10 +1,8 @@
 <?php
     $openedFact = \App\Support\CheckStory::focus($incident->code, $openingCheck, $warningMs) ?: $incident->plainDetail();
-    $clearedFact = \App\Support\CheckStory::focus($incident->code, $closingCheck, $warningMs);
 ?>
 <header class="record-head">
     <div>
-        <p class="record-kicker"><?php echo e($incident->reference); ?> · This computer</p>
         <h2 id="recordModalTitle"><?php echo e($incident->plainProblem()); ?></h2>
         <p class="record-meta">
             <?php if (isset($component)) { $__componentOriginal0f0f6d48f1e3fcafba02703e0b070890 = $component; } ?>
@@ -29,7 +27,7 @@
 <?php endif; ?>
             <span>Opened <?php echo e($incident->first_detected_at->format('g:i:s A')); ?></span>
             <?php if($incident->resolved_at): ?><span>Closed <?php echo e($incident->resolved_at->format('g:i:s A')); ?></span><?php endif; ?>
-            <span><?php echo e($incident->durationLabel()); ?></span>
+            <span><?php echo e($incident->reference); ?></span>
         </p>
     </div>
 </header>

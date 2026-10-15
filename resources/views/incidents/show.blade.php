@@ -3,7 +3,6 @@
 @section('content')
 @php
     $openedFact = \App\Support\CheckStory::focus($incident->code, $openingCheck, $warningMs) ?: $incident->plainDetail();
-    $clearedFact = \App\Support\CheckStory::focus($incident->code, $closingCheck, $warningMs);
 @endphp
 <div class="page-fit incident-page">
     <header class="identity">
@@ -12,10 +11,9 @@
             <h1>{{ $incident->plainProblem() }}</h1>
             <p>
                 <x-status-pill :status="$incident->status" :label="$incident->status === 'resolved' ? 'Closed' : 'Open'" />
-                <span>This computer</span>
-                <span>{{ $incident->first_detected_at->format('g:i:s A') }}</span>
+                <span>Opened {{ $incident->first_detected_at->format('g:i:s A') }}</span>
                 @if($incident->resolved_at)<span>Closed {{ $incident->resolved_at->format('g:i:s A') }}</span>@endif
-                <span>{{ $incident->durationLabel() }}</span>
+                <span>{{ $incident->reference }}</span>
             </p>
         </div>
     </header>

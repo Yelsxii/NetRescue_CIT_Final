@@ -29,19 +29,20 @@ foreach ($attributes->all() as $__key => $__value) {
 unset($__defined_vars, $__key, $__value); ?>
 <div class="table-scroll">
     <table class="data-table check-table">
-        <colgroup><col style="width:12%"><col style="width:17%"><col style="width:17%"><col style="width:22%"><col style="width:32%"></colgroup>
+        <colgroup><col style="width:11%"><col style="width:21%"><col style="width:21%"><col style="width:22%"><col style="width:25%"></colgroup>
         <thead>
             <tr>
                 <th>Time</th>
                 <th>Gateway</th>
                 <th>Internet</th>
                 <th>Name lookup</th>
-                <th>Result</th>
+                <th class="result-cell">Result</th>
             </tr>
         </thead>
         <tbody>
             <?php $__empty_1 = true; $__currentLoopData = $checks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $check): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                 <?php
+                    $resultTone = $check->diagnosis_code === 'healthy' ? 'ok' : (in_array($check->severity, ['none', 'low'], true) ? 'warn' : 'bad');
                     $unmeasured = ['code' => 'none', 'label' => '—', 'detail' => 'Not measured'];
                     if ($check->readingFinished()) {
                         $gateway = \App\Support\CheckStory::probeMark($check, 'gateway', (int) $warning);
@@ -56,7 +57,7 @@ unset($__defined_vars, $__key, $__value); ?>
                     <td><b class="mark-<?php echo e($gateway['code']); ?>"><?php echo e($gateway['label']); ?></b> <?php echo e($gateway['detail']); ?></td>
                     <td><b class="mark-<?php echo e($internet['code']); ?>"><?php echo e($internet['label']); ?></b> <?php echo e($internet['detail']); ?></td>
                     <td><b class="mark-<?php echo e($dns['code']); ?>"><?php echo e($dns['label']); ?></b> <?php echo e($dns['detail']); ?></td>
-                    <td><?php echo e($check->diagnosis_title); ?></td>
+                    <td class="result-cell"><span class="result-text is-<?php echo e($resultTone); ?>"><?php echo e($check->diagnosis_title); ?></span></td>
                 </tr>
             <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                 <tr>

@@ -20,6 +20,8 @@
 
     <section class="stat-row local-stats" aria-label="This computer's monitoring summary">
         <article class="stat-card stat-a">
+            <span class="stat-sheen" aria-hidden="true"></span>
+            <span class="stat-sheen-high" aria-hidden="true"></span>
             <span class="stat-mark"><x-icon name="computer" size="22" /></span>
             <div class="stat-copy">
                 <span>This computer</span>
@@ -28,6 +30,8 @@
             </div>
         </article>
         <article class="stat-card stat-c">
+            <span class="stat-sheen" aria-hidden="true"></span>
+            <span class="stat-sheen-high" aria-hidden="true"></span>
             <span class="stat-mark"><x-icon name="shield" size="22" /></span>
             <div class="stat-copy">
                 <span>Healthy · 24h</span>
@@ -36,6 +40,8 @@
             </div>
         </article>
         <article class="stat-card stat-d">
+            <span class="stat-sheen" aria-hidden="true"></span>
+            <span class="stat-sheen-high" aria-hidden="true"></span>
             <span class="stat-mark"><x-icon name="incident" size="22" /></span>
             <div class="stat-copy">
                 <span>Open incidents</span>

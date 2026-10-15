@@ -976,3 +976,47 @@
 [stacktrace]
 #0 {main}
 "} 
+[2026-10-16 00:12:43] local.ERROR: PHP Parse error: Syntax error, unexpected T_OBJECT_OPERATOR on line 1 {"exception":"[object] (Psy\\Exception\\ParseErrorException(code: 0): PHP Parse error: Syntax error, unexpected T_OBJECT_OPERATOR on line 1 at C:/xampp/htdocs/NetRescue_CIT_Final/vendor/psy/psysh/src/Exception/ParseErrorException.php:44)
+[stacktrace]
+#0 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/psy/psysh/src/CodeCleaner.php(657): Psy/Exception/ParseErrorException::fromParseError(Object(PhpParser/Error))
+#1 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/psy/psysh/src/CodeCleaner.php(273): Psy/CodeCleaner->parse('<?php echo //App...', false)
+#2 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/psy/psysh/src/Shell.php(1399): Psy/CodeCleaner->clean(Array, false)
+#3 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/psy/psysh/src/Shell.php(1506): Psy/Shell->appendCode('echo //App//Model...', true, false)
+#4 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/psy/psysh/src/Shell.php(2215): Psy/Shell->setCode('echo //App//Model...', true)
+#5 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/tinker/src/Console/TinkerCommand.php(77): Psy/Shell->execute('echo //App//Model...')
+#6 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Laravel/Tinker/Console/TinkerCommand->handle()
+#7 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate/Container/BoundMethod::Illuminate/Container/{closure}()
+#8 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(96): Illuminate/Container/Util::unwrapIfClosure(Object(Closure))
+#9 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate/Container/BoundMethod::callBoundMethod(Object(Illuminate/Foundation/Application), Array, Object(Closure))
+#10 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/Container.php(799): Illuminate/Container/BoundMethod::call(Object(Illuminate/Foundation/Application), Array, Array, NULL)
+#11 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Console/Command.php(211): Illuminate/Container/Container->call(Array)
+#12 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/symfony/console/Command/Command.php(341): Illuminate/Console/Command->execute(Object(Symfony/Component/Console/Input/ArgvInput), Object(Illuminate/Console/OutputStyle))
+#13 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Console/Command.php(180): Symfony/Component/Console/Command/Command->run(Object(Symfony/Component/Console/Input/ArgvInput), Object(Illuminate/Console/OutputStyle))
+#14 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/symfony/console/Application.php(1117): Illuminate/Console/Command->run(Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#15 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/symfony/console/Application.php(356): Symfony/Component/Console/Application->doRunCommand(Object(Laravel/Tinker/Console/TinkerCommand), Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#16 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/symfony/console/Application.php(195): Symfony/Component/Console/Application->doRun(Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#17 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony/Component/Console/Application->run(Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#18 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate/Foundation/Console/Kernel->handle(Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#19 C:/xampp/htdocs/NetRescue_CIT_Final/artisan(14): Illuminate/Foundation/Application->handleCommand(Object(Symfony/Component/Console/Input/ArgvInput))
+#20 {main}
+"} 
+[2026-10-16 00:13:15] local.ERROR: Unexpected end of input {"exception":"[object] (InvalidArgumentException(code: 0): Unexpected end of input at C:/xampp/htdocs/NetRescue_CIT_Final/vendor/psy/psysh/src/Shell.php:1516)
+[stacktrace]
+#0 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/psy/psysh/src/Shell.php(2215): Psy/Shell->setCode('echo optional(A...', true)
+#1 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/tinker/src/Console/TinkerCommand.php(77): Psy/Shell->execute('echo optional(A...')
+#2 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(36): Laravel/Tinker/Console/TinkerCommand->handle()
+#3 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/Util.php(43): Illuminate/Container/BoundMethod::Illuminate/Container/{closure}()
+#4 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(96): Illuminate/Container/Util::unwrapIfClosure(Object(Closure))
+#5 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/BoundMethod.php(35): Illuminate/Container/BoundMethod::callBoundMethod(Object(Illuminate/Foundation/Application), Array, Object(Closure))
+#6 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Container/Container.php(799): Illuminate/Container/BoundMethod::call(Object(Illuminate/Foundation/Application), Array, Array, NULL)
+#7 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Console/Command.php(211): Illuminate/Container/Container->call(Array)
+#8 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/symfony/console/Command/Command.php(341): Illuminate/Console/Command->execute(Object(Symfony/Component/Console/Input/ArgvInput), Object(Illuminate/Console/OutputStyle))
+#9 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Console/Command.php(180): Symfony/Component/Console/Command/Command->run(Object(Symfony/Component/Console/Input/ArgvInput), Object(Illuminate/Console/OutputStyle))
+#10 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/symfony/console/Application.php(1117): Illuminate/Console/Command->run(Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#11 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/symfony/console/Application.php(356): Symfony/Component/Console/Application->doRunCommand(Object(Laravel/Tinker/Console/TinkerCommand), Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#12 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/symfony/console/Application.php(195): Symfony/Component/Console/Application->doRun(Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#13 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Foundation/Console/Kernel.php(198): Symfony/Component/Console/Application->run(Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#14 C:/xampp/htdocs/NetRescue_CIT_Final/vendor/laravel/framework/src/Illuminate/Foundation/Application.php(1235): Illuminate/Foundation/Console/Kernel->handle(Object(Symfony/Component/Console/Input/ArgvInput), Object(Symfony/Component/Console/Output/ConsoleOutput))
+#15 C:/xampp/htdocs/NetRescue_CIT_Final/artisan(14): Illuminate/Foundation/Application->handleCommand(Object(Symfony/Component/Console/Input/ArgvInput))
+#16 {main}
+"} 
