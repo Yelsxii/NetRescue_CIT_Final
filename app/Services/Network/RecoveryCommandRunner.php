@@ -3,6 +3,7 @@
 namespace App\Services\Network;
 
 use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Throwable;
 
 class RecoveryCommandRunner
@@ -47,7 +48,12 @@ class RecoveryCommandRunner
             }
             return ['successful' => true, 'output' => implode("\n\n", $output), 'error' => '', 'exit_code' => $exitCode];
         } catch (Throwable $e) {
-            return ['successful' => false, 'output' => implode("\n\n", $output), 'error' => $e->getMessage(), 'exit_code' => $exitCode];
+            if (isset($process) && $process->isStarted()) {
+                $partial = trim($process->getOutput());
+                if ($partial !== '') $output[] = $partial;
+            }
+            return ['successful' => false, 'output' => implode("\n\n", $output), 'error' => $e->getMessage(),
+                'exit_code' => null, 'timed_out' => $e instanceof ProcessTimedOutException];
         }
     }
 }

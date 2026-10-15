@@ -1,6 +1,8 @@
 <?php
     $story = $incident->story();
     $attempt = $incident->latestRecovery();
+    $needsResultCheck = $incident->is_active && $attempt
+        && in_array($attempt->verification_status, ['unread', 'adapter_changed'], true);
     $previousAttempts = $attempt
         ? $incident->recoveryActions()->where('id', '!=', $attempt->id)->with(['beforeHealthCheck', 'afterHealthCheck'])->get()
         : collect();
@@ -24,7 +26,12 @@
     <article class="case-card case-repair-card">
         <div class="case-card-head">
             <h2><?php echo e($attempt ? 'Latest repair request and result' : 'Repair request and result'); ?></h2>
-            <?php if($incident->canRepair()): ?>
+            <?php if($needsResultCheck): ?>
+                <form method="POST" action="<?php echo e(route('incidents.retest', $incident)); ?>" class="js-busy-form case-repair-action" data-busy-text="Checking this incident's adapter again…">
+                    <?php echo csrf_field(); ?>
+                    <button class="button button-primary" type="submit">Check result</button>
+                </form>
+            <?php elseif($incident->canRepair()): ?>
                 <form method="POST" action="<?php echo e(route('incidents.recover', $incident)); ?>" class="js-busy-form case-repair-action" data-busy-text="Checking the current condition and verifying the repair outcome...">
                     <?php echo csrf_field(); ?>
                     <button class="button button-primary" type="submit">Run repair</button>
@@ -32,9 +39,11 @@
             <?php endif; ?>
         </div>
         <p class="case-fact" data-story-repair><?php echo e($story['repair']); ?></p>
-        <?php if($incident->canRepair()): ?>
+        <?php if($needsResultCheck): ?>
+            <p class="quiet">Check result reads this incident's adapter again without repeating the repair command.</p>
+        <?php elseif($incident->canRepair()): ?>
             <p class="quiet">Available action: <code><?php echo e($incident->repairCommand()); ?></code></p>
-            <p class="quiet"><?php echo e($incident->device?->is_local ? 'Checks the condition before deciding whether to run a command.' : 'Queues a command for the endpoint; completion must be reported separately.'); ?></p>
+            <p class="quiet"><?php echo e($incident->device?->is_local ? 'Checks the current condition, runs the command if needed, then verifies automatically. Scheduled checks may stay paused.' : 'Queues a command for the endpoint; completion must be reported separately.'); ?></p>
         <?php elseif($incident->is_active && filled($incident->repairCommand()) && $incident->device && ! $incident->device->is_local): ?>
             <p class="quiet">This computer is not reporting, so the command cannot be sent.</p>
         <?php elseif($incident->is_active): ?>
@@ -65,9 +74,18 @@
         <p class="case-when">Request recorded <?php echo e($attempt->started_at?->format('M j, g:i:s A')); ?></p>
         <p class="quiet">Command: <?php echo e($attempt->executionLabel()); ?>. Outcome: <?php echo e($attempt->verificationLabel()); ?>.</p>
         <?php if($attempt->command_exit_code !== null): ?><p class="quiet">Command exit code: <?php echo e($attempt->command_exit_code); ?></p><?php endif; ?>
+        <?php if($verification = data_get($attempt->afterHealthCheck?->probe_meta, 'recovery_verification')): ?>
+            <p class="quiet">Automatic verification: <?php echo e($verification['attempt']); ?> of <?php echo e($verification['maximum_attempts']); ?> allowed readings. The repair command was not repeated.</p>
+            <?php if(is_numeric($commandMs = $verification['command_ms'] ?? null)): ?>
+                <p class="quiet">Command duration: <?php echo e(number_format($commandMs / 1000, 2)); ?> seconds.</p>
+            <?php endif; ?>
+        <?php endif; ?>
         <?php $__currentLoopData = ['Before' => $attempt->beforeHealthCheck, 'After' => $attempt->afterHealthCheck]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $stage => $evidence): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
             <?php if($evidence): ?>
                 <p><b><?php echo e($stage); ?>:</b> <?php echo e($evidence->checked_at->format('g:i:s A')); ?> · <?php echo e($evidence->diagnosis_title ?: $evidence->diagnosis_code); ?> · IPv4 <?php echo e($evidence->local_ip ?: 'None'); ?> · Gateway <?php echo e($evidence->gateway_ip ?: 'None'); ?> · <?php echo e($evidence->interface_name ?: 'Unknown adapter'); ?></p>
+                <?php if(is_numeric($duration = data_get($evidence->probe_meta, 'timings_ms.total'))): ?>
+                    <p class="quiet">Reading duration: <?php echo e(number_format($duration / 1000, 2)); ?> seconds.</p>
+                <?php endif; ?>
             <?php endif; ?>
         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
         <?php if($attempt->error_message): ?><p class="command-error"><?php echo e($attempt->error_message); ?></p><?php endif; ?>

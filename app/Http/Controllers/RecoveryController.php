@@ -8,11 +8,12 @@ use App\Models\RecoveryAction;
 use App\Services\Network\NetworkRequestTimeout;
 use App\Services\Network\RecoveryService;
 use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Throwable;
 
 class RecoveryController extends Controller
 {
-    public function store(Incident $incident, RecoveryService $recoveryService, NetworkRequestTimeout $requestTimeout): RedirectResponse
+    public function store(Incident $incident, RecoveryService $recoveryService, NetworkRequestTimeout $requestTimeout, Request $request): RedirectResponse
     {
         $incident->loadMissing(['device', 'latestHealthCheck']);
 
@@ -61,10 +62,14 @@ class RecoveryController extends Controller
 
         $skipped = $recovery->execution_status === 'skipped';
         $already = $recovery->verification_status === 'already_recovered';
-        return redirect()->route('incidents.show', $incident)->with('toast', [
+        $observed = $recovery->verification_status === 'observed_recovery';
+        $destination = $request->input('return_to') === 'dashboard'
+            ? route('dashboard') : route('incidents.show', $incident);
+        return redirect($destination)->with('toast', [
             'type' => $recovery->success || $already ? 'success' : 'warning',
             'title' => $already ? 'Already recovered - no command run'
-                : ($skipped ? 'Repair was not run' : ($recovery->success ? 'Recovery verified' : 'Repair outcome needs review')),
+                : ($skipped ? 'Repair was not run' : ($recovery->success ? 'Recovery verified'
+                    : ($observed ? 'Recovery observed; repair not verified' : 'Repair outcome needs review'))),
             'message' => $recovery->outcomeSummary(),
         ]);
     }

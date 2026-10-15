@@ -31,10 +31,13 @@ class NetworkRequestTimeoutTest extends TestCase
     public function test_recovery_allowance_covers_the_complete_default_pipeline(): void
     {
         $timeout = app(NetworkRequestTimeout::class);
-        // Default readings can each use 36 seconds; DHCP has two 35-second commands.
+        // Budget one precheck and up to three follow-ups, with no unbounded retry.
         $this->assertGreaterThan(144, $timeout->recoverySeconds('renew_dhcp', 'dhcp_issue'));
         $this->assertGreaterThan(109, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
         $this->assertGreaterThan(60, $timeout->checkSeconds());
+        $this->assertSame(211, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
+        config(['netrescue.verification.attempts' => 100, 'netrescue.verification.retry_delay_seconds' => 100]);
+        $this->assertSame(219, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
     }
 
     public function test_custom_probe_limits_and_all_configured_targets_are_accounted_for(): void
@@ -44,7 +47,7 @@ class NetworkRequestTimeoutTest extends TestCase
             'netrescue.timeouts.socket_seconds' => 5, 'netrescue.timeouts.dns_seconds' => 10,
             'netrescue.timeouts.recovery_seconds' => 40]);
         $timeout = app(NetworkRequestTimeout::class);
-        // Two 75-second readings plus two 40-second commands exceed the usual 180-second minimum.
+        // All configured target deadlines and each allowed follow-up are covered.
         $this->assertGreaterThan(232, $timeout->recoverySeconds('renew_dhcp', 'dhcp_issue'));
         $this->assertGreaterThan($timeout->recoverySeconds('enable_adapter', 'adapter_disabled'),
             $timeout->recoverySeconds('renew_dhcp', 'dhcp_issue'));
@@ -74,11 +77,13 @@ class NetworkRequestTimeoutTest extends TestCase
         $incident = $this->incident();
         $check = new HealthCheck(['diagnosis_code' => 'healthy', 'diagnosis_title' => 'Network Operational', 'severity' => 'none', 'health_score' => 100]);
         $mock = Mockery::mock(NetworkHealthService::class);
-        $mock->shouldReceive('run')->twice()->with('manual', true)->andReturnUsing(function () use ($check) {
+        $reading = function () use ($check) {
             $this->assertGreaterThan(60, (int) ini_get('max_execution_time'));
 
             return ['check' => $check];
-        });
+        };
+        $mock->shouldReceive('run')->once()->with('manual', true)->andReturnUsing($reading);
+        $mock->shouldReceive('run')->once()->with('manual', true, null)->andReturnUsing($reading);
         $this->app->instance(NetworkHealthService::class, $mock);
         $old = (int) ini_get('max_execution_time');
         try {

@@ -10,7 +10,7 @@ class StatusController extends Controller
 {
     public function __invoke()
     {
-        $latest = HealthCheck::query()->latest('checked_at')->first();
+        $latest = HealthCheck::query()->latest('checked_at')->orderByDesc('id')->first();
         $settings = MonitorSetting::current();
         $activeIncident = Incident::query()->where('status', 'active')->latest('last_detected_at')->first();
 

@@ -14,7 +14,7 @@ class IncidentStory
         $repair = $attempt?->outcomeSummary() ?? 'No repair was run.';
 
         if ($incident->is_active) {
-            $resolution = $attempt && in_array($attempt->verification_status, ['pending', 'unread'], true)
+            $resolution = $attempt && in_array($attempt->verification_status, ['pending', 'unread', 'adapter_changed'], true)
                 ? 'This incident remains open because the current condition has not been verified after the repair request.'
                 : match ($incident->code) {
                 'dhcp_issue' => 'No usable DHCP address obtained; a 169.254 fallback address was reported.',

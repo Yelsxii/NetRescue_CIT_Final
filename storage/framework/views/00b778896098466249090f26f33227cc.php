@@ -227,6 +227,9 @@
                 ?>
                 <div class="now-facts">
                     <p class="case-fact"><?php echo e($localLatest->diagnosis_title); ?></p>
+                    <?php if(is_numeric($duration = data_get($localLatest->probe_meta, 'timings_ms.total'))): ?>
+                        <p class="quiet">Check duration: <?php echo e(number_format($duration / 1000, 2)); ?> seconds.</p>
+                    <?php endif; ?>
                     <?php if($readingIncomplete): ?>
                         <p class="quiet"><?php echo e($localLatest->diagnosis_summary); ?></p>
                     <?php endif; ?>
@@ -243,18 +246,32 @@
                     <?php endif; ?>
                 </div>
                 <?php $__empty_1 = true; $__currentLoopData = $openHere; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $incident): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
-                    <div class="repair-slot">
-                        <strong>Available repair</strong>
-                        <?php if($incident->canRepair()): ?>
+                    <?php
+                        $repairAdapter = $incident->latestHealthCheck?->interface_name;
+                        $differentAdapter = filled($repairAdapter) && $repairAdapter !== $shown->interface_name;
+                        $lastAttempt = $incident->latestRecovery();
+                        $unverifiedAttempt = $lastAttempt && in_array($lastAttempt->verification_status, ['pending', 'unread', 'adapter_changed'], true);
+                    ?>
+                    <div class="repair-slot" data-repair-target="<?php echo e($repairAdapter); ?>">
+                        <strong><?php echo e($differentAdapter || $unverifiedAttempt ? 'Repair result needs review' : 'Available repair'); ?></strong>
+                        <?php if($differentAdapter || $unverifiedAttempt): ?>
+                            <span><?php echo e($incident->reference); ?> · <?php echo e($repairAdapter ?: 'Unknown adapter'); ?> · <?php echo e($incident->plainProblem()); ?></span>
+                            <a class="button button-primary repair-review" href="<?php echo e(route('incidents.show', $incident)); ?>">Review result</a>
+                            <?php if($differentAdapter): ?>
+                                <p class="quiet">The latest completed reading is for <?php echo e($shown->interface_name ?: 'another adapter'); ?>. It does not verify this <?php echo e($repairAdapter); ?> incident.</p>
+                            <?php endif; ?>
+                            <?php if($lastAttempt): ?><p class="quiet"><?php echo e($lastAttempt->outcomeSummary()); ?></p><?php endif; ?>
+                        <?php elseif($incident->canRepair()): ?>
                             <span><?php echo e($incident->repairCommand()); ?></span>
                             <form method="POST" action="<?php echo e(route('incidents.recover', $incident)); ?>" class="js-busy-form" data-busy-text="Running the repair and measuring again…">
                                 <?php echo csrf_field(); ?>
+                                <input type="hidden" name="return_to" value="dashboard">
                                 <button class="button button-primary" type="submit">Run repair</button>
                             </form>
                         <?php else: ?>
                             <span>No repair command is available for this condition.</span>
                         <?php endif; ?>
-                        <?php if($incident->nextStep()): ?><p class="quiet"><?php echo e($incident->nextStep()); ?></p><?php endif; ?>
+                        <?php if(! $differentAdapter && ! $unverifiedAttempt && $incident->nextStep()): ?><p class="quiet"><?php echo e($incident->nextStep()); ?></p><?php endif; ?>
                     </div>
                 <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); if ($__empty_1): ?>
                 <?php endif; ?>
@@ -292,5 +309,6 @@
     </section>
 </div>
 <?php $__env->stopSection(); ?>
+
 
 <?php echo $__env->make('layouts.app', ['title' => 'NetRescue CIT · Dashboard', 'pageTitle' => 'Dashboard'], array_diff_key(get_defined_vars(), ['__data' => 1, '__path' => 1]))->render(); ?><?php /**PATH C:\xampp\htdocs\NetRescue_CIT_Final\resources\views/dashboard/index.blade.php ENDPATH**/ ?>

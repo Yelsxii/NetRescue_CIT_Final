@@ -4,6 +4,7 @@ namespace App\Services\Network;
 
 use App\Models\Incident;
 use App\Models\RecoveryAction;
+use Illuminate\Support\Facades\Cache;
 use Throwable;
 
 class RecoveryService
@@ -17,6 +18,21 @@ class RecoveryService
 
     public function attempt(Incident $incident): RecoveryAction
     {
+        $ttl = app(NetworkRequestTimeout::class)->recoverySeconds((string) $incident->recovery_action_code, $incident->code) + 30;
+        $lock = Cache::lock('netrescue:repair:'.$incident->device_id, $ttl);
+        if (! $lock->get()) {
+            throw new \RuntimeException('A repair for this computer is already running. Wait for its automatic verification to finish. No second repair command was run.');
+        }
+        try {
+            $incident->refresh();
+            return $this->attemptLocked($incident);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function attemptLocked(Incident $incident): RecoveryAction
+    {
         if (! $incident->is_active) throw new \RuntimeException('This incident is no longer active.');
         if ($incident->device && ! $incident->device->is_local) throw new \RuntimeException('Remote recovery must be queued through its agent.');
         $actionCode = $incident->recovery_action_code;
@@ -24,7 +40,7 @@ class RecoveryService
             throw new \RuntimeException('No local recovery action is defined for this incident.');
         }
         $targetName = $incident->latestHealthCheck?->interface_name;
-        $beforeResult = $this->healthService->run('recovery_before', false);
+        $beforeResult = $this->healthService->run('recovery_before', false, $targetName);
         $before = $beforeResult['check'];
         $recovery = RecoveryAction::create([
             'device_id' => $incident->device_id, 'incident_id' => $incident->id,
@@ -49,21 +65,22 @@ class RecoveryService
             return $this->skip($recovery, 'changed_condition');
         }
 
+        $commandStarted = microtime(true);
         $command = $this->commands->run($actionCode, $incident->code, $before->interface_name);
+        $commandMs = round((microtime(true) - $commandStarted) * 1000, 2);
+        $execution = $command['successful'] ? 'completed' : (! empty($command['timed_out']) ? 'timed_out' : 'failed');
         // Persist execution before waiting for the next reading. A later timeout must
         // not erase the command result or turn an enabled adapter into a claimed failure.
         $recovery->update([
-            'execution_status' => $command['successful'] ? 'completed' : 'failed',
+            'execution_status' => $execution,
             'verification_status' => 'pending', 'success' => null,
             'command_exit_code' => $command['exit_code'] ?? null,
             'output_excerpt' => $this->excerpt($command['output']),
             'error_message' => $command['successful'] ? null : $this->excerpt($command['error']),
         ]);
-        if ($command['successful']) {
-            usleep(in_array($actionCode, ['renew_dhcp', 'enable_adapter', 'restart_adapter'], true) ? 2500000 : 500000);
-        }
         try {
-            $afterResult = $this->healthService->run('recovery_after', false);
+            $afterResult = $this->verifyAfter($recovery, $actionCode, $before->interface_name,
+                (bool) $command['successful'] || $execution === 'timed_out', $commandMs);
         } catch (Throwable $e) {
             report($e);
             $recovery->update([
@@ -72,7 +89,7 @@ class RecoveryService
                     $recovery->error_message, 'Follow-up verification did not finish: '.$e->getMessage(),
                 ]))),
             ]);
-            $incident->update(['recommended_action' => 'Run Central Check to measure the connection. The command result is recorded, but recovery has not been verified.']);
+            $incident->update(['recommended_action' => 'Automatic verification could not obtain a completed reading. The command result is retained. Review the recorded reading error before retrying the check.']);
 
             return $recovery->fresh(['beforeHealthCheck', 'afterHealthCheck', 'incident']);
         }
@@ -81,11 +98,11 @@ class RecoveryService
         $conditionCleared = $after->readingFinished() && $after->platform_supported && $sameAdapter
             && $this->plan->cleared($incident->code, $before, $after);
         $verified = $command['successful'] && $conditionCleared;
-        $verification = $verified ? 'verified' : (! $after->readingFinished() ? 'unread'
-            : (! $sameAdapter ? 'adapter_changed' : ($after->diagnosis_code !== $incident->code ? 'changed_condition' : 'not_verified')));
+        $verification = $verified ? 'verified' : ($conditionCleared ? 'observed_recovery' : (! $after->readingFinished() ? 'unread'
+            : (! $sameAdapter ? 'adapter_changed' : ($after->diagnosis_code !== $incident->code ? 'changed_condition' : 'not_verified'))));
         $recovery->update([
             'after_health_check_id' => $after->id, 'completed_at' => now(), 'success' => $verified,
-            'execution_status' => $command['successful'] ? 'completed' : 'failed',
+            'execution_status' => $execution,
             'verification_status' => $verification, 'command_exit_code' => $command['exit_code'] ?? null,
             'output_excerpt' => $this->excerpt($command['output']),
             'error_message' => $command['successful'] ? null : $this->excerpt($command['error']),
@@ -100,7 +117,9 @@ class RecoveryService
         } elseif ($sameAdapter && $after->readingFinished() && $after->platform_supported && $after->diagnosis_code !== $incident->code) {
             $this->incidentManager->synchronize($after, $afterResult['diagnosis']);
         } elseif (! $after->readingFinished()) {
-            $incident->update(['recommended_action' => 'Run Central Check to measure the connection. The command result is recorded, but recovery has not been verified.']);
+            $incident->update(['recommended_action' => 'Automatic verification exhausted its reading attempts. The command result is retained, but recovery remains unverified. Review the reading error before retrying the check.']);
+        } elseif (! $sameAdapter) {
+            $incident->update(['recommended_action' => 'The follow-up measured a different adapter. Recovery of '.$before->interface_name.' remains unverified; review the recorded request before running another command.']);
         } elseif ($after->readingFinished() && $sameAdapter) {
             if ($command['successful']) {
                 [$nextAction, $recommendation] = $this->plan->nextStep($incident, $actionCode, $after);
@@ -114,6 +133,45 @@ class RecoveryService
             ]);
         }
         return $recovery->fresh(['beforeHealthCheck', 'afterHealthCheck', 'incident']);
+    }
+
+    private function verifyAfter(RecoveryAction $recovery, string $actionCode, ?string $adapter, bool $mayBeReconnecting, float $commandMs): array
+    {
+        $attempts = max(1, min(3, (int) config('netrescue.verification.attempts', 3)));
+        $delay = max(0, min(5, (float) config('netrescue.verification.retry_delay_seconds', 1)));
+        $previousIds = [];
+        $errors = [];
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            if ($attempt > 1 && $delay > 0) {
+                usleep((int) ($delay * 1000000));
+            }
+            try {
+                $result = $this->healthService->run('recovery_after', false, $adapter);
+            } catch (Throwable $e) {
+                $errors[] = $e->getMessage();
+                if ($attempt === $attempts) {
+                    throw $e;
+                }
+                continue;
+            }
+            $check = $result['check'];
+            // Retain each reading and link the latest even if a later retry stops.
+            $meta = $check->probe_meta ?? [];
+            $meta['recovery_verification'] = ['attempt' => $attempt, 'maximum_attempts' => $attempts,
+                'previous_check_ids' => $previousIds, 'reading_errors' => $errors, 'command_ms' => $commandMs,
+                'target_adapter' => $adapter];
+            $check->update(['probe_meta' => $meta]);
+            $recovery->update(['after_health_check_id' => $check->id]);
+            $sameAdapter = blank($adapter) || $adapter === $check->interface_name;
+            $reconnecting = $mayBeReconnecting && in_array($actionCode, ['enable_adapter', 'restart_adapter', 'renew_dhcp'], true)
+                && $sameAdapter && in_array($check->diagnosis_code,
+                    ['adapter_disabled', 'adapter_disconnected', 'ip_configuration_missing', 'dhcp_issue', 'gateway_missing', 'gateway_unreachable'], true);
+            if ($attempt === $attempts || ($check->readingFinished() && ! $reconnecting)) {
+                return $result;
+            }
+            $previousIds[] = $check->id;
+        }
+        throw new \RuntimeException('Automatic verification did not return a reading.');
     }
 
     private function skip(RecoveryAction $recovery, string $reason): RecoveryAction

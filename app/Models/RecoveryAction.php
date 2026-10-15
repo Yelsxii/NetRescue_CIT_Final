@@ -27,6 +27,14 @@ class RecoveryAction extends Model
     public function incident(): BelongsTo { return $this->belongsTo(Incident::class); }
     public function beforeHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'before_health_check_id'); }
     public function afterHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'after_health_check_id'); }
+    public function commandTimedOut(): bool
+    {
+        if ($this->execution_status === 'timed_out') return true;
+        // Interpret existing timeout evidence such as NR-00027 without rewriting
+        // its stored flags. This is not an explicit non-zero command exit.
+        return $this->execution_status === 'failed' && $this->command_exit_code === null
+            && preg_match('/\AThe process ".*" exceeded the timeout of [0-9.]+ seconds\./s', (string) $this->error_message) === 1;
+    }
     public function outcomeSummary(): string
     {
         if ($this->execution_status === 'skipped') {
@@ -35,6 +43,16 @@ class RecoveryAction extends Model
                 'unread' => 'No repair was run because the pre-repair reading did not finish.',
                 'adapter_changed' => 'No repair was run because Windows selected a different adapter.',
                 default => 'No repair was run because the pre-repair check recorded a different condition.',
+            };
+        }
+        if ($this->commandTimedOut()) {
+            $result = 'The command exceeded its time limit; command completion was not confirmed.';
+            if (! $this->completed_at) return $result.' Automatic verification has not finished.';
+            return $result.' '.match ($this->verification_status) {
+                'adapter_changed' => 'The follow-up measured a different adapter, so recovery of the target was not verified.',
+                'observed_recovery' => 'The follow-up observed recovery, but the command was not verified as its cause.',
+                'unread' => 'The follow-up reading did not finish; recovery remains unverified.',
+                default => 'The follow-up did not verify recovery of the target condition.',
             };
         }
         if (! $this->completed_at) {
@@ -70,6 +88,7 @@ class RecoveryAction extends Model
     }
     public function executionLabel(): string
     {
+        if ($this->commandTimedOut()) return 'Command timed out; completion unconfirmed';
         return match ($this->execution_status) {
             'skipped' => 'Not run',
             'completed' => 'Command completed',
@@ -87,6 +106,7 @@ class RecoveryAction extends Model
             'not_verified' => 'Recovery not verified',
             'changed_condition' => 'A different condition was measured',
             'adapter_changed' => 'A different adapter was measured',
+            'observed_recovery' => 'Recovery observed; repair not verified',
             'unread' => 'The network reading did not finish',
             'pending' => 'Awaiting a verification result',
             default => $this->success ? 'Recovery verified' : 'Recovery not verified',

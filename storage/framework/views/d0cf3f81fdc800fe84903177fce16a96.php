@@ -351,7 +351,8 @@
     <div class="busy-card">
         <span class="spinner"></span>
         <strong id="busyTitle">Working…</strong>
-        <span>NetRescue is checking the result.</span>
+        <span id="busyDetail">Waiting for the operation to finish.</span>
+        <small id="busyElapsed" aria-live="off"></small>
     </div>
 </div>
 

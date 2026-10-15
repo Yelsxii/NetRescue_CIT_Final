@@ -557,6 +557,8 @@ html.theme-light .theme-toggle .icon-moon { display: block; }
     display: grid; justify-items: center; gap: 6px; padding: 16px 18px; border-radius: 16px;
     background: #12203d; border: 1px solid var(--line); text-align: center;
 }
+.busy-card { width: min(440px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; }
+.busy-card small { color: var(--muted); }
 .spinner { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,.2); border-top-color: white; animation: spin .7s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .toast-stack { position: fixed; right: 16px; bottom: 16px; z-index: 110; display: grid; gap: 8px; }
@@ -723,6 +725,7 @@ html.theme-light .side-user { background: rgba(15, 23, 42, .04); }
 .dashboard .now-panel .repair-slot > strong { grid-column: 1; grid-row: 1; }
 .dashboard .now-panel .repair-slot > span { grid-column: 1; grid-row: 2; }
 .dashboard .now-panel .repair-slot > form { grid-column: 2; grid-row: 1 / span 2; justify-self: end; align-self: center; margin: 0; }
+.dashboard .now-panel .repair-slot > .repair-review { grid-column: 2; grid-row: 1 / span 2; justify-self: end; align-self: center; }
 .dashboard .now-panel .repair-slot > p { grid-column: 1 / -1; }
 .dashboard .now-panel .repair-slot .button { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 8px; }
 .incident-table th { white-space: nowrap; }

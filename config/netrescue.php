@@ -14,6 +14,11 @@ return [
         'socket_seconds' => 2.5,
         'recovery_seconds' => 35,
     ],
+    'verification' => [
+        // Re-read after transient reconnect/reader failures; never repeat the command.
+        'attempts' => 3,
+        'retry_delay_seconds' => 1,
+    ],
     'health_weights' => [
         'gateway' => 30,
         'internet' => 30,

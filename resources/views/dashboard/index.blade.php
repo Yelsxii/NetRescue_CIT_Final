@@ -134,6 +134,9 @@
                 @endphp
                 <div class="now-facts">
                     <p class="case-fact">{{ $localLatest->diagnosis_title }}</p>
+                    @if(is_numeric($duration = data_get($localLatest->probe_meta, 'timings_ms.total')))
+                        <p class="quiet">Check duration: {{ number_format($duration / 1000, 2) }} seconds.</p>
+                    @endif
                     @if($readingIncomplete)
                         <p class="quiet">{{ $localLatest->diagnosis_summary }}</p>
                     @endif
@@ -150,18 +153,32 @@
                     @endif
                 </div>
                 @forelse($openHere as $incident)
-                    <div class="repair-slot">
-                        <strong>Available repair</strong>
-                        @if($incident->canRepair())
+                    @php
+                        $repairAdapter = $incident->latestHealthCheck?->interface_name;
+                        $differentAdapter = filled($repairAdapter) && $repairAdapter !== $shown->interface_name;
+                        $lastAttempt = $incident->latestRecovery();
+                        $unverifiedAttempt = $lastAttempt && in_array($lastAttempt->verification_status, ['pending', 'unread', 'adapter_changed'], true);
+                    @endphp
+                    <div class="repair-slot" data-repair-target="{{ $repairAdapter }}">
+                        <strong>{{ $differentAdapter || $unverifiedAttempt ? 'Repair result needs review' : 'Available repair' }}</strong>
+                        @if($differentAdapter || $unverifiedAttempt)
+                            <span>{{ $incident->reference }} · {{ $repairAdapter ?: 'Unknown adapter' }} · {{ $incident->plainProblem() }}</span>
+                            <a class="button button-primary repair-review" href="{{ route('incidents.show', $incident) }}">Review result</a>
+                            @if($differentAdapter)
+                                <p class="quiet">The latest completed reading is for {{ $shown->interface_name ?: 'another adapter' }}. It does not verify this {{ $repairAdapter }} incident.</p>
+                            @endif
+                            @if($lastAttempt)<p class="quiet">{{ $lastAttempt->outcomeSummary() }}</p>@endif
+                        @elseif($incident->canRepair())
                             <span>{{ $incident->repairCommand() }}</span>
                             <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form" data-busy-text="Running the repair and measuring again…">
                                 @csrf
+                                <input type="hidden" name="return_to" value="dashboard">
                                 <button class="button button-primary" type="submit">Run repair</button>
                             </form>
                         @else
                             <span>No repair command is available for this condition.</span>
                         @endif
-                        @if($incident->nextStep())<p class="quiet">{{ $incident->nextStep() }}</p>@endif
+                        @if(! $differentAdapter && ! $unverifiedAttempt && $incident->nextStep())<p class="quiet">{{ $incident->nextStep() }}</p>@endif
                     </div>
                 @empty
                 @endforelse
@@ -180,3 +197,4 @@
     </section>
 </div>
 @endsection
+

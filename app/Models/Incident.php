@@ -80,7 +80,9 @@ class Incident extends Model
             'renew_dhcp' => $adapter
                 ? ($this->code === 'dhcp_issue' ? 'ipconfig /release "'.$adapter.'", then ipconfig /renew "'.$adapter.'"' : 'ipconfig /renew "'.$adapter.'"')
                 : 'Renew the measured adapter (name unavailable)',
-            'enable_adapter' => $adapter ? 'Enable-NetAdapter -Name "'.$adapter.'"' : 'Enable-NetAdapter',
+            'enable_adapter' => $this->device?->is_local
+                ? ($adapter ? 'Enable-NetAdapter -Name "'.$adapter.'" -Confirm:$false -ErrorAction Stop' : 'Enable the measured adapter (name unavailable)')
+                : ($adapter ? 'Enable-NetAdapter -Name "'.$adapter.'"' : 'Enable-NetAdapter'),
             'restart_adapter' => $adapter ? 'Restart-NetAdapter -Name "'.$adapter.'"' : 'Restart-NetAdapter',
             default => null,
         };
@@ -110,6 +112,9 @@ class Incident extends Model
 
     public function nextStep(): ?string
     {
+        if ($this->is_active && $this->latestRecovery()?->verification_status === 'adapter_changed') {
+            return 'The last follow-up measured another adapter. Check this incident\'s target again before running another repair command.';
+        }
         return match ($this->code) {
             'device_offline' => 'Check that it is on and connected.',
             'slow_network' => 'Check the cable, switch port, and local traffic.',

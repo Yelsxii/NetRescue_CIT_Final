@@ -16,7 +16,7 @@ class DashboardController extends Controller
         $localDevice = Device::localHost();
         $localLatest = HealthCheck::query()
             ->where('device_id', $localDevice->id)
-            ->latest('checked_at')
+            ->latest('checked_at')->orderByDesc('id')
             ->first();
 
         $readingIncomplete = $localLatest && ! $localLatest->readingFinished();
@@ -24,14 +24,14 @@ class DashboardController extends Controller
             ? HealthCheck::query()
                 ->where('device_id', $localDevice->id)
                 ->where('diagnosis_code', '!=', 'configuration_unreadable')
-                ->latest('checked_at')
+                ->latest('checked_at')->orderByDesc('id')
                 ->first()
             : $localLatest;
 
         $lastAutomatic = HealthCheck::query()
             ->where('device_id', $localDevice->id)
             ->where('source', 'automatic')
-            ->latest('checked_at')
+            ->latest('checked_at')->orderByDesc('id')
             ->first();
 
         $nextCheckAt = $settings->enabled
@@ -58,7 +58,7 @@ class DashboardController extends Controller
 
         $recentChecks = HealthCheck::query()
             ->where('device_id', $localDevice->id)
-            ->latest('checked_at')
+            ->latest('checked_at')->orderByDesc('id')
             ->limit(5)
             ->get();
 
@@ -87,3 +87,4 @@ class DashboardController extends Controller
         ));
     }
 }
+

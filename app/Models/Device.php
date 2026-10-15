@@ -31,7 +31,7 @@ class Device extends Model
 
     public function healthChecks(): HasMany
     {
-        return $this->hasMany(HealthCheck::class)->latest('checked_at');
+        return $this->hasMany(HealthCheck::class)->latest('checked_at')->orderByDesc('id');
     }
 
     public function incidents(): HasMany
@@ -46,7 +46,7 @@ class Device extends Model
 
     public function latestHealthCheck(): HasOne
     {
-        return $this->hasOne(HealthCheck::class)->latestOfMany('checked_at');
+        return $this->hasOne(HealthCheck::class)->ofMany(['checked_at' => 'max', 'id' => 'max']);
     }
 
     public function activeIncident(): HasOne

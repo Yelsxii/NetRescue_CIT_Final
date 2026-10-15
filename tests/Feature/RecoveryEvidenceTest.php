@@ -20,6 +20,14 @@ class RecoveryEvidenceTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // These tests exercise one-reading evidence semantics. Retry behaviour is
+        // tested separately with real before/unread/healthy reading sequences.
+        config(['netrescue.verification.attempts' => 1, 'netrescue.verification.retry_delay_seconds' => 0]);
+    }
+
     private function check(string $code, array $extra = []): HealthCheck
     {
         $healthy = $code === 'healthy';
@@ -51,7 +59,7 @@ class RecoveryEvidenceTest extends TestCase
         $mock = Mockery::mock(NetworkHealthService::class);
         foreach ($checks as $index => $check) {
             $diagnosis = new NetworkDiagnosis($check->diagnosis_code, $check->diagnosis_title, $check->severity, 'Test reading.');
-            $mock->shouldReceive('run')->once()->with($index === 0 ? 'recovery_before' : 'recovery_after', false)
+            $mock->shouldReceive('run')->once()->with($index === 0 ? 'recovery_before' : 'recovery_after', false, 'Wi-Fi')
                 ->andReturn(['check' => $check, 'diagnosis' => $diagnosis]);
         }
         $this->app->instance(NetworkHealthService::class, $mock);
@@ -202,8 +210,8 @@ class RecoveryEvidenceTest extends TestCase
     {
         $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
         $health = Mockery::mock(NetworkHealthService::class);
-        $health->shouldReceive('run')->once()->with('recovery_before', false)->andReturn(['check' => $before]);
-        $health->shouldReceive('run')->once()->with('recovery_after', false)->andReturnUsing(function () use ($incident) {
+        $health->shouldReceive('run')->once()->with('recovery_before', false, 'Wi-Fi')->andReturn(['check' => $before]);
+        $health->shouldReceive('run')->once()->with('recovery_after', false, 'Wi-Fi')->andReturnUsing(function () use ($incident) {
             $saved = RecoveryAction::where('incident_id', $incident->id)->firstOrFail();
             $this->assertSame('completed', $saved->execution_status);
             $this->assertSame(0, $saved->command_exit_code);
@@ -229,8 +237,8 @@ class RecoveryEvidenceTest extends TestCase
     {
         $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
         $health = Mockery::mock(NetworkHealthService::class);
-        $health->shouldReceive('run')->once()->with('recovery_before', false)->andReturn(['check' => $before]);
-        $health->shouldReceive('run')->once()->with('recovery_after', false)->andReturnUsing(function () use ($incident) {
+        $health->shouldReceive('run')->once()->with('recovery_before', false, 'Wi-Fi')->andReturn(['check' => $before]);
+        $health->shouldReceive('run')->once()->with('recovery_after', false, 'Wi-Fi')->andReturnUsing(function () use ($incident) {
             $saved = RecoveryAction::where('incident_id', $incident->id)->firstOrFail();
             $this->assertSame('failed', $saved->execution_status);
             $this->assertSame('Access denied', $saved->error_message);
@@ -272,7 +280,7 @@ class RecoveryEvidenceTest extends TestCase
         $this->assertSame('unread', $result->verification_status);
         $this->assertFalse($result->success);
         $this->assertSame('active', $incident->fresh()->status);
-        $this->assertStringContainsString('Run Central Check', $incident->fresh()->recommended_action);
+        $this->assertStringContainsString('Automatic verification exhausted', $incident->fresh()->recommended_action);
         $this->assertStringContainsString('current condition has not been verified', $incident->fresh()->resolutionLabel());
     }
 

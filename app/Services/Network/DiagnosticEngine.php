@@ -28,7 +28,7 @@ class DiagnosticEngine
                     'This is not a missing adapter. The last completed reading is still the known configuration.',
                     'Gateway, Internet, and name lookup were not run for this check.',
                 ],
-                recommendedAction: 'Run Central Check again. A slow Windows read is not proof the connection is down.',
+                recommendedAction: 'Review the recorded Windows reading error. An incomplete reading does not prove the connection is down.',
             );
         }
 
@@ -44,7 +44,7 @@ class DiagnosticEngine
                     'Windows still has the adapter, and it can be enabled.',
                     'Gateway, Internet, and name lookup were not run because the adapter is off.',
                 ],
-                recommendedAction: 'Enable '.$name.', then measure again.',
+                recommendedAction: 'Run repair to enable '.$name.' and verify the result automatically.',
                 recoveryActionCode: filled($metrics['interface_name'] ?? null) ? 'enable_adapter' : null,
             );
         }
@@ -93,7 +93,7 @@ class DiagnosticEngine
                     'The adapter is active but does not have a normal LAN IPv4 assignment.',
                     'Gateway, Internet, and DNS checks are not treated as primary failures until the IP configuration is corrected.',
                 ],
-                recommendedAction: 'Request a fresh DHCP lease, then re-test the connection.',
+                recommendedAction: 'Run repair to request a fresh DHCP lease and verify the result automatically.',
                 recoveryActionCode: 'renew_dhcp',
             );
         }
@@ -109,7 +109,7 @@ class DiagnosticEngine
                 severity: 'high',
                 summary: 'The active adapter does not have a usable IPv4 address.',
                 details: ['Check DHCP or manual IPv4 configuration before testing external connectivity.'],
-                recommendedAction: 'Renew the address from the router.',
+                recommendedAction: 'Run repair to renew the address from the router and verify it automatically.',
                 recoveryActionCode: 'renew_dhcp',
             );
         }
@@ -125,7 +125,7 @@ class DiagnosticEngine
                 severity: 'high',
                 summary: 'The adapter has an IPv4 address but Windows does not currently report a default IPv4 gateway.',
                 details: ['Without a default gateway, traffic usually cannot leave the local network.'],
-                recommendedAction: 'Renew the address so Windows receives a gateway.',
+                recommendedAction: 'Run repair to renew the address and automatically check for a gateway.',
                 recoveryActionCode: 'renew_dhcp',
             );
         }
@@ -144,7 +144,7 @@ class DiagnosticEngine
                     'This points to a local link, access point, router, cable, or gateway availability problem.',
                     'Internet and DNS failures are not separately reported because the local path failed first.',
                 ],
-                recommendedAction: 'Renew the address, then measure the gateway again.',
+                recommendedAction: 'Run repair to renew the address and automatically measure the gateway again.',
                 recoveryActionCode: 'renew_dhcp',
             );
         }

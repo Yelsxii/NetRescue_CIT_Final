@@ -1,6 +1,8 @@
 @php
     $story = $incident->story();
     $attempt = $incident->latestRecovery();
+    $needsResultCheck = $incident->is_active && $attempt
+        && in_array($attempt->verification_status, ['unread', 'adapter_changed'], true);
     $previousAttempts = $attempt
         ? $incident->recoveryActions()->where('id', '!=', $attempt->id)->with(['beforeHealthCheck', 'afterHealthCheck'])->get()
         : collect();
@@ -24,7 +26,12 @@
     <article class="case-card case-repair-card">
         <div class="case-card-head">
             <h2>{{ $attempt ? 'Latest repair request and result' : 'Repair request and result' }}</h2>
-            @if($incident->canRepair())
+            @if($needsResultCheck)
+                <form method="POST" action="{{ route('incidents.retest', $incident) }}" class="js-busy-form case-repair-action" data-busy-text="Checking this incident's adapter again…">
+                    @csrf
+                    <button class="button button-primary" type="submit">Check result</button>
+                </form>
+            @elseif($incident->canRepair())
                 <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form case-repair-action" data-busy-text="Checking the current condition and verifying the repair outcome...">
                     @csrf
                     <button class="button button-primary" type="submit">Run repair</button>
@@ -32,9 +39,11 @@
             @endif
         </div>
         <p class="case-fact" data-story-repair>{{ $story['repair'] }}</p>
-        @if($incident->canRepair())
+        @if($needsResultCheck)
+            <p class="quiet">Check result reads this incident's adapter again without repeating the repair command.</p>
+        @elseif($incident->canRepair())
             <p class="quiet">Available action: <code>{{ $incident->repairCommand() }}</code></p>
-            <p class="quiet">{{ $incident->device?->is_local ? 'Checks the condition before deciding whether to run a command.' : 'Queues a command for the endpoint; completion must be reported separately.' }}</p>
+            <p class="quiet">{{ $incident->device?->is_local ? 'Checks the current condition, runs the command if needed, then verifies automatically. Scheduled checks may stay paused.' : 'Queues a command for the endpoint; completion must be reported separately.' }}</p>
         @elseif($incident->is_active && filled($incident->repairCommand()) && $incident->device && ! $incident->device->is_local)
             <p class="quiet">This computer is not reporting, so the command cannot be sent.</p>
         @elseif($incident->is_active)
@@ -65,9 +74,18 @@
         <p class="case-when">Request recorded {{ $attempt->started_at?->format('M j, g:i:s A') }}</p>
         <p class="quiet">Command: {{ $attempt->executionLabel() }}. Outcome: {{ $attempt->verificationLabel() }}.</p>
         @if($attempt->command_exit_code !== null)<p class="quiet">Command exit code: {{ $attempt->command_exit_code }}</p>@endif
+        @if($verification = data_get($attempt->afterHealthCheck?->probe_meta, 'recovery_verification'))
+            <p class="quiet">Automatic verification: {{ $verification['attempt'] }} of {{ $verification['maximum_attempts'] }} allowed readings. The repair command was not repeated.</p>
+            @if(is_numeric($commandMs = $verification['command_ms'] ?? null))
+                <p class="quiet">Command duration: {{ number_format($commandMs / 1000, 2) }} seconds.</p>
+            @endif
+        @endif
         @foreach(['Before' => $attempt->beforeHealthCheck, 'After' => $attempt->afterHealthCheck] as $stage => $evidence)
             @if($evidence)
                 <p><b>{{ $stage }}:</b> {{ $evidence->checked_at->format('g:i:s A') }} · {{ $evidence->diagnosis_title ?: $evidence->diagnosis_code }} · IPv4 {{ $evidence->local_ip ?: 'None' }} · Gateway {{ $evidence->gateway_ip ?: 'None' }} · {{ $evidence->interface_name ?: 'Unknown adapter' }}</p>
+                @if(is_numeric($duration = data_get($evidence->probe_meta, 'timings_ms.total')))
+                    <p class="quiet">Reading duration: {{ number_format($duration / 1000, 2) }} seconds.</p>
+                @endif
             @endif
         @endforeach
         @if($attempt->error_message)<p class="command-error">{{ $attempt->error_message }}</p>@endif

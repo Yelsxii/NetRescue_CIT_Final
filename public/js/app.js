@@ -123,11 +123,36 @@
 
     const busyOverlay = qs('#busyOverlay');
     const busyTitle = qs('#busyTitle');
+    const busyDetail = qs('#busyDetail');
+    const busyElapsed = qs('#busyElapsed');
+    let operationBusy = false;
+    let busyStarted = 0;
+    let busyTimer;
+    const resetBusy = () => {
+        operationBusy = false;
+        clearInterval(busyTimer);
+        busyOverlay?.classList.remove('is-open');
+        busyOverlay?.setAttribute('aria-hidden', 'true');
+        qsa('.js-busy-form button[type="submit"]').forEach((button) => button.disabled = false);
+    };
+    window.addEventListener('pageshow', resetBusy);
     document.addEventListener('submit', (event) => {
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || !form.classList.contains('js-busy-form')) return;
+        if (operationBusy) { event.preventDefault(); return; }
+        operationBusy = true;
+        busyStarted = Date.now();
         qsa('button[type="submit"]', form).forEach((button) => button.disabled = true);
-        if (busyTitle) busyTitle.textContent = form.dataset.busyText || 'Working…';
+        const repairing = new URL(form.action, window.location.href).pathname.endsWith('/recover');
+        if (busyTitle) busyTitle.textContent = repairing
+            ? 'Checking the condition, repairing, and verifying…' : (form.dataset.busyText || 'Working…');
+        if (busyDetail) busyDetail.textContent = repairing
+            ? 'Verification and the result update are automatic, even with scheduled checks paused.'
+            : 'The page will update when this request finishes.';
+        if (busyElapsed) busyElapsed.textContent = 'Elapsed: 0 seconds';
+        busyTimer = setInterval(() => {
+            if (busyElapsed) busyElapsed.textContent = `Elapsed: ${Math.floor((Date.now() - busyStarted) / 1000)} seconds`;
+        }, 1000);
         if (busyOverlay) {
             busyOverlay.classList.add('is-open');
             busyOverlay.setAttribute('aria-hidden', 'false');
@@ -140,12 +165,14 @@
     const initialCheckId = Number(document.body.dataset.latestCheckId || 0);
     if (window.location.pathname === '/') {
         setInterval(async () => {
-            if (document.hidden) return;
+            // A before/after reading can change /status during repair. Never
+            // navigate away from an active repair to refresh those partial results.
+            if (document.hidden || operationBusy) return;
             try {
                 const response = await fetch('/status', { headers: { Accept: 'application/json' }, cache: 'no-store' });
                 if (!response.ok) return;
                 const data = await response.json();
-                if (Number(data.latest_check_id || 0) > initialCheckId) window.location.reload();
+                if (!operationBusy && Number(data.latest_check_id || 0) > initialCheckId) window.location.reload();
             } catch (_) {
                 // Auto-refresh is a convenience. Monitoring continues even if this browser request fails.
             }
@@ -330,3 +357,4 @@
         });
     });
 })();
+

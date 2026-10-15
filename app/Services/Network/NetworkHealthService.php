@@ -18,23 +18,29 @@ class NetworkHealthService
         private readonly IncidentManager $incidentManager,
     ) {}
 
-    public function run(string $source = 'manual', bool $manageIncidents = true): array
+    public function run(string $source = 'manual', bool $manageIncidents = true, ?string $interfaceName = null): array
     {
         $settings = MonitorSetting::current();
         $device = Device::localHost();
 
+        $runStarted = microtime(true);
+        $timings = [];
         try {
-            $configuration = $this->probe->collectConfiguration();
+            $phaseStarted = microtime(true);
+            $configuration = filled($interfaceName) ? $this->probe->collectConfiguration($interfaceName) : $this->probe->collectConfiguration();
+            $timings['configuration'] = round((microtime(true) - $phaseStarted) * 1000, 2);
             $localIp = $configuration['local_ip'] ?? null;
             $ipAssignment = $this->classifyIp($localIp);
 
             $metrics = [
                 'platform_supported' => (bool) ($configuration['supported'] ?? false),
+                'requested_interface_name' => $interfaceName,
                 'configuration_unreadable' => filled($configuration['error'] ?? null),
                 'adapter_available' => (bool) ($configuration['adapter_available'] ?? false),
                 'adapter_state' => $configuration['adapter_state'] ?? null,
                 'address_source' => $configuration['address_source'] ?? 'unknown',
                 'dns_source' => $configuration['dns_source'] ?? 'unknown',
+                'configuration_reader' => $configuration['reader'] ?? null,
                 'interface_name' => $configuration['interface_name'] ?? null,
                 'local_ip' => $localIp,
                 'ip_assignment' => $ipAssignment,
@@ -48,14 +54,18 @@ class NetworkHealthService
             ];
 
             if (! $metrics['configuration_unreadable'] && $metrics['platform_supported'] && $metrics['adapter_available'] && $ipAssignment === 'valid' && $metrics['gateway_ip']) {
+                $phaseStarted = microtime(true);
                 $gateway = $this->probe->probeGateway($metrics['gateway_ip']);
+                $timings['gateway'] = round((microtime(true) - $phaseStarted) * 1000, 2);
                 $metrics['probe_states']['gateway'] = $gateway['reachable'] ? 'passed' : 'failed';
                 $metrics['gateway_reachable'] = $gateway['reachable'];
                 $metrics['gateway_latency_ms'] = $gateway['latency_ms'];
                 if ($gateway['error']) $metrics['probe_errors'][] = $gateway['error'];
 
                 if ($metrics['gateway_reachable']) {
+                    $phaseStarted = microtime(true);
                     $internet = $this->probe->probeInternet($settings->internet_targets ?: config('netrescue.internet_targets', []));
+                    $timings['internet'] = round((microtime(true) - $phaseStarted) * 1000, 2);
                     $metrics['probe_states']['internet'] = $internet['reachable'] ? 'passed' : 'failed';
                     $metrics['internet_reachable'] = $internet['reachable'];
                     $metrics['internet_latency_ms'] = $internet['latency_ms'];
@@ -63,7 +73,9 @@ class NetworkHealthService
                     if ($internet['error']) $metrics['probe_errors'][] = $internet['error'];
 
                     if ($metrics['internet_reachable']) {
+                        $phaseStarted = microtime(true);
                         $dns = $this->probe->probeDns($settings->dns_test_domain);
+                        $timings['dns'] = round((microtime(true) - $phaseStarted) * 1000, 2);
                         $metrics['probe_states']['dns'] = $dns['operational'] ? 'passed' : 'failed';
                         $metrics['dns_operational'] = $dns['operational'];
                         $metrics['dns_latency_ms'] = $dns['latency_ms'];
@@ -73,6 +85,7 @@ class NetworkHealthService
                 }
             }
 
+            $metrics['timings_ms'] = $timings + ['total' => round((microtime(true) - $runStarted) * 1000, 2)];
             $diagnosis = $this->diagnosticEngine->diagnose($metrics, $settings->latency_warning_ms);
             $score = $this->scoreFor($metrics, $settings->latency_warning_ms);
             $check = $this->persistCheck($device, $metrics, $diagnosis, $score, $source, $settings->dns_test_domain);
@@ -85,6 +98,7 @@ class NetworkHealthService
 
             $metrics = [
                 'platform_supported' => PHP_OS_FAMILY === 'Windows',
+                'requested_interface_name' => $interfaceName,
                 'configuration_unreadable' => true,
                 'adapter_available' => false,
                 'interface_name' => null, 'local_ip' => null, 'gateway_ip' => null, 'dns_servers' => [],
@@ -93,6 +107,7 @@ class NetworkHealthService
                 'dns_operational' => false, 'dns_latency_ms' => null, 'probe_errors' => [$e->getMessage()],
             ];
 
+            $metrics['timings_ms'] = $timings + ['total' => round((microtime(true) - $runStarted) * 1000, 2)];
             $diagnosis = $this->diagnosticEngine->diagnose($metrics, $settings->latency_warning_ms);
             $score = $this->scoreFor($metrics, $settings->latency_warning_ms);
             $check = $this->persistCheck($device, $metrics, $diagnosis, $score, $source, $settings->dns_test_domain);
@@ -129,6 +144,8 @@ class NetworkHealthService
             'diagnosis_summary' => $diagnosis->summary,
             'diagnosis_details' => $diagnosis->details,
             'probe_meta' => [
+                'timings_ms' => $metrics['timings_ms'] ?? [],
+                'requested_interface_name' => $metrics['requested_interface_name'] ?? null,
                 'internet_target' => $metrics['internet_target'] ?? null,
                 'dns_addresses' => $metrics['dns_addresses'] ?? [],
                 'errors' => $metrics['probe_errors'] ?? [],
@@ -137,6 +154,7 @@ class NetworkHealthService
                 'adapter_state' => $metrics['adapter_state'] ?? null,
                 'address_source' => $metrics['address_source'] ?? 'unknown',
                 'dns_source' => $metrics['dns_source'] ?? 'unknown',
+                'configuration_reader' => $metrics['configuration_reader'] ?? null,
             ],
         ]);
     }

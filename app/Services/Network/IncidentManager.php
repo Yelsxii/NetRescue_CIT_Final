@@ -73,7 +73,7 @@ class IncidentManager
     {
         $latestCheckId = HealthCheck::query()
             ->where('device_id', $device->id)
-            ->latest('checked_at')
+            ->latest('checked_at')->orderByDesc('id')
             ->value('id');
 
         $incident = Incident::query()->firstOrCreate(

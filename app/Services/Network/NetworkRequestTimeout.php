@@ -27,8 +27,12 @@ class NetworkRequestTimeout
         $commands = $actionCode === 'renew_dhcp' && $incidentCode === 'dhcp_issue' ? 2 : 1;
         $commandSeconds = (float) config('netrescue.timeouts.recovery_seconds', 35);
 
-        // Two complete readings, bounded commands, reconnect delay, and request overhead.
-        return max(180, (int) ceil(2 * $this->measurementSeconds() + $commands * $commandSeconds + 3 + 30));
+        $attempts = max(1, min(3, (int) config('netrescue.verification.attempts', 3)));
+        $delay = max(0, min(5, (float) config('netrescue.verification.retry_delay_seconds', 1)));
+        // One fresh precheck and up to three automatic follow-ups. These are
+        // worst-case allowances, not delays added to a successful repair.
+        return max(180, (int) ceil((1 + $attempts) * $this->measurementSeconds()
+            + $commands * $commandSeconds + ($attempts - 1) * $delay + 30));
     }
 
     private function measurementSeconds(): float

@@ -49,7 +49,7 @@ class FleetSummaryService
             'dns' => $this->averageLatency($checks24h, 'dns_latency_ms'),
         ];
 
-        $latestCheck = HealthCheck::query()->latest('checked_at')->first();
+        $latestCheck = HealthCheck::query()->latest('checked_at')->orderByDesc('id')->first();
         $activeIncidents = Incident::query()
             ->with(['device', 'recoveryActions'])
             ->where('status', 'active')

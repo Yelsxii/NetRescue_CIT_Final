@@ -53,13 +53,14 @@ class HealthCheckController extends Controller
         } catch (Throwable $e) {
             return back()->with('toast', ['type' => 'warning', 'title' => 'Re-test could not start', 'message' => $e->getMessage()]);
         }
-        $result = $healthService->run('manual', true);
+        $result = $healthService->run('manual', true, $incident->latestHealthCheck?->interface_name);
         $check = $result['check'];
 
         return redirect()->route('incidents.show', $incident)->with('toast', [
             'type' => $check->diagnosis_code === 'healthy' ? 'success' : 'warning',
-            'title' => 'Re-test completed',
-            'message' => $check->diagnosis_title.' · '.$check->health_score.'% health score',
+            'title' => $check->readingFinished() ? 'Re-test completed' : 'Reading did not finish',
+            'message' => $check->readingFinished()
+                ? $check->diagnosis_title.' · '.$check->health_score.'% health score' : $check->diagnosis_summary,
         ]);
     }
 }

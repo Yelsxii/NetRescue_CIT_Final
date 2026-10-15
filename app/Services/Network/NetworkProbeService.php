@@ -3,6 +3,7 @@
 namespace App\Services\Network;
 
 use Symfony\Component\Process\Process;
+use Symfony\Component\Process\Exception\ProcessTimedOutException;
 use Throwable;
 
 class NetworkProbeService
@@ -12,108 +13,24 @@ class NetworkProbeService
         return PHP_OS_FAMILY === 'Windows';
     }
 
-    public function collectConfiguration(): array
+    public function collectConfiguration(?string $interfaceName = null): array
     {
         if (!$this->isSupportedPlatform()) {
             return $this->emptyConfiguration('NetRescue network probes require Windows 10 or Windows 11.', false);
         }
 
-        $script = <<<'POWERSHELL'
-function Write-Reading($available, $state, $name, $ip, $gateway, $dns, $addressSource, $dnsSource) {
-    [pscustomobject]@{
-        adapterAvailable = [bool]$available
-        adapterState = $state
-        interfaceName = $name
-        localIp = $ip
-        gatewayIp = $gateway
-        dnsServers = @($dns)
-        addressSource = $addressSource
-        dnsSource = $dnsSource
-    } | ConvertTo-Json -Compress -Depth 4
-}
+        $scriptPath = resource_path('powershell/read-configuration.ps1');
+        if (! is_readable($scriptPath)) {
+            return $this->emptyConfiguration('The Windows configuration reader script is missing.');
+        }
 
-function Get-AddressSource([int]$interfaceIndex) {
-    $ipif = Get-NetIPInterface -InterfaceIndex $interfaceIndex -AddressFamily IPv4 -ErrorAction SilentlyContinue
-    if (-not $ipif) { return 'unknown' }
-    if ([string]$ipif.Dhcp -eq 'Enabled') { return 'dhcp' }
-    return 'static'
-}
-
-function Get-DnsSource($interfaceGuid) {
-    if (-not $interfaceGuid) { return 'unknown' }
-    $path = "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\$interfaceGuid"
-    $reg = Get-ItemProperty -Path $path -ErrorAction SilentlyContinue
-    if (-not $reg) { return 'unknown' }
-    if ([string]$reg.NameServer -and [string]$reg.NameServer.Trim()) { return 'static' }
-    return 'dhcp'
-}
-
-function Select-NamedAdapter { param($Adapters)
-    $wifi = @($Adapters | Where-Object { $_.Name -match 'Wi-?Fi|Wireless|WLAN' } | Select-Object -First 1)
-    if ($wifi) { return $wifi[0] }
-    $ethernet = @($Adapters | Where-Object { $_.Name -match 'Ethernet' } | Select-Object -First 1)
-    if ($ethernet) { return $ethernet[0] }
-    return $null
-}
-
-try {
-    $route = Get-NetRoute -DestinationPrefix '0.0.0.0/0' -AddressFamily IPv4 -ErrorAction SilentlyContinue |
-        Where-Object { $_.NextHop -and $_.NextHop -ne '0.0.0.0' } |
-        Sort-Object RouteMetric, InterfaceMetric |
-        Select-Object -First 1
-
-    if ($route) {
-        $cfg = Get-NetIPConfiguration -InterfaceIndex $route.InterfaceIndex -ErrorAction SilentlyContinue
-    } else {
-        $cfg = Get-NetIPConfiguration -ErrorAction SilentlyContinue |
-            Where-Object { $_.NetAdapter.Status -eq 'Up' } |
-            Select-Object -First 1
-    }
-
-    if ($cfg) {
-        $ipv4 = @($cfg.IPv4Address | ForEach-Object { $_.IPAddress } | Where-Object { $_ -and $_ -notlike '127.*' }) | Select-Object -First 1
-        $gateway = @($cfg.IPv4DefaultGateway | ForEach-Object { $_.NextHop } | Where-Object { $_ }) | Select-Object -First 1
-        $dns = @($cfg.DNSServer.ServerAddresses | Where-Object { $_ } | Select-Object -Unique)
-        $guid = $null
-        $adapter = Get-NetAdapter -InterfaceIndex $cfg.InterfaceIndex -ErrorAction SilentlyContinue
-        if ($adapter) { $guid = $adapter.InterfaceGuid }
-        $addressSource = 'unknown'
-        $dnsSource = 'unknown'
-        try { $addressSource = Get-AddressSource ([int]$cfg.InterfaceIndex) } catch { $addressSource = 'unknown' }
-        try { $dnsSource = Get-DnsSource $guid } catch { $dnsSource = 'unknown' }
-        Write-Reading $true 'up' $cfg.InterfaceAlias $ipv4 $gateway $dns $addressSource $dnsSource
-        exit 0
-    }
-
-    $physical = @(Get-NetAdapter -ErrorAction SilentlyContinue | Where-Object { $_.HardwareInterface -eq $true })
-    $disabled = Select-NamedAdapter -Adapters @($physical | Where-Object { $_.Status -eq 'Disabled' })
-    if ($disabled) {
-        Write-Reading $false 'disabled' $disabled.Name $null $null @() 'unknown' 'unknown'
-        exit 0
-    }
-    $disconnected = Select-NamedAdapter -Adapters @($physical | Where-Object { $_.Status -in @('Disconnected', 'Lower Layer Down') })
-    if ($disconnected) {
-        Write-Reading $false 'disconnected' $disconnected.Name $null $null @() 'unknown' 'unknown'
-        exit 0
-    }
-
-    Write-Reading $false 'missing' $null $null $null @() 'unknown' 'unknown'
-} catch {
-    [pscustomobject]@{
-        adapterAvailable = $false
-        adapterState = $null
-        interfaceName = $null
-        localIp = $null
-        gatewayIp = $null
-        dnsServers = @()
-        addressSource = 'unknown'
-        dnsSource = 'unknown'
-        error = $_.Exception.Message
-    } | ConvertTo-Json -Compress -Depth 4
-}
-POWERSHELL;
-
-        $result = $this->runPowerShell($script, (float) config('netrescue.timeouts.powershell_seconds', 20));
+        // Keep the larger script out of cmd.exe's command-line length limit.
+        $command = [$this->windowsTool('WindowsPowerShell\\v1.0\\powershell.exe'),
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $scriptPath];
+        if (filled($interfaceName)) {
+            $command = array_merge($command, ['-InterfaceName', $this->adapterName($interfaceName)]);
+        }
+        $result = $this->runProcess($command, (float) config('netrescue.timeouts.powershell_seconds', 20));
 
         if (!$result['successful']) {
             return $this->emptyConfiguration($result['error'] ?: 'Windows network configuration could not be read.');
@@ -129,7 +46,14 @@ POWERSHELL;
         $dns = array_values(array_unique(array_filter((array) $dns)));
 
         if (filled($decoded['error'] ?? null)) {
-            return $this->emptyConfiguration((string) $decoded['error']);
+            $configuration = $this->emptyConfiguration((string) $decoded['error']);
+            $configuration['interface_name'] = $decoded['interfaceName'] ?? $interfaceName;
+            return $configuration;
+        }
+        if (filled($interfaceName) && ($decoded['interfaceName'] ?? null) !== $interfaceName) {
+            $configuration = $this->emptyConfiguration('Windows did not return the requested adapter '.$interfaceName.'. A reading from a different adapter cannot verify this repair.');
+            $configuration['interface_name'] = $interfaceName;
+            return $configuration;
         }
 
         return [
@@ -142,12 +66,15 @@ POWERSHELL;
             'dns_servers' => $dns,
             'address_source' => $this->addressSource($decoded['addressSource'] ?? null),
             'dns_source' => $this->addressSource($decoded['dnsSource'] ?? null),
+            'reader' => is_string($decoded['reader'] ?? null) ? $decoded['reader'] : null,
             'error' => null,
         ];
     }
 
     public function enableAdapter(string $name): array
     {
+        // Use the command that completed in this laptop's isolated Windows test.
+        // A timeout remains unconfirmed; only fresh measurements verify recovery.
         return $this->changeAdapter($this->adapterName($name), 'Enable-NetAdapter');
     }
 
@@ -166,15 +93,18 @@ POWERSHELL;
         }
 
         $safeIp = str_replace("'", '', $gatewayIp);
+        $pingMs = max(250, min(1500, (int) ((float) config('netrescue.timeouts.ping_seconds', 5) * 1000 / 3)));
         $script = <<<POWERSHELL
-\$items = @(Test-Connection -ComputerName '{$safeIp}' -Count 2 -ErrorAction SilentlyContinue)
-\$times = @(\$items | Where-Object { \$_.StatusCode -eq 0 } | ForEach-Object { [double]\$_.ResponseTime })
-if (\$times.Count -gt 0) {
-    \$avg = [Math]::Round((\$times | Measure-Object -Average).Average, 2)
-    [pscustomobject]@{ reachable = \$true; latencyMs = \$avg } | ConvertTo-Json -Compress
-} else {
-    [pscustomobject]@{ reachable = \$false; latencyMs = \$null } | ConvertTo-Json -Compress
-}
+\$ping = [System.Net.NetworkInformation.Ping]::new()
+\$times = @()
+try {
+    1..2 | ForEach-Object {
+        \$reply = \$ping.Send([System.Net.IPAddress]::Parse('{$safeIp}'), {$pingMs})
+        if (\$reply.Status -eq [System.Net.NetworkInformation.IPStatus]::Success) { \$times += [double]\$reply.RoundtripTime }
+    }
+} finally { \$ping.Dispose() }
+\$average = if (\$times.Count) { [Math]::Round((\$times | Measure-Object -Average).Average, 2) } else { \$null }
+[pscustomobject]@{ reachable = (\$times.Count -gt 0); latencyMs = \$average } | ConvertTo-Json -Compress
 POWERSHELL;
 
         $result = $this->runPowerShell($script, (float) config('netrescue.timeouts.ping_seconds', 5));
@@ -308,38 +238,52 @@ POWERSHELL;
             'output' => $result['output'],
             'error' => $result['successful'] ? '' : ($result['error'] ?: 'Windows could not change the adapter.'),
             'exit_code' => $result['exit_code'] ?? null,
+            'timed_out' => (bool) ($result['timed_out'] ?? false),
         ];
     }
 
-    private function runPowerShell(string $script, float $timeout): array
+    protected function runPowerShell(string $script, float $timeout): array
     {
+        // A consistent encoding avoids cmd.exe quoting problems. Suppressing
+        // progress keeps module-loading messages off the error stream.
+        $script = "\$ProgressPreference = 'SilentlyContinue';\n".$script;
+        $encoded = base64_encode(mb_convert_encoding($script, 'UTF-16LE', 'UTF-8'));
+        return $this->runProcess([$this->windowsTool('WindowsPowerShell\\v1.0\\powershell.exe'),
+            '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded], $timeout);
+    }
+
+    protected function runProcess(array $command, float $timeout): array
+    {
+        $process = null;
         try {
-            $systemRoot = getenv('SystemRoot') ?: getenv('WINDIR')
-                ?: ($_SERVER['SystemRoot'] ?? null) ?: ($_SERVER['WINDIR'] ?? null) ?: 'C:\\Windows';
-            $systemRoot = rtrim($systemRoot, '\\/');
-            $powershell = $systemRoot.'\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
-
-            if (!is_file($powershell)) {
-                return ['successful' => false, 'output' => '', 'error' => "Windows PowerShell was not found at {$powershell}.", 'exit_code' => null];
+            if (!is_file($command[0])) {
+                return ['successful' => false, 'output' => '', 'error' => 'Windows tool was not found: '.$command[0], 'exit_code' => null];
             }
-
-            $process = new Process(
-                [$powershell, '-NoLogo', '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', $script],
-                null,
-                ['SystemRoot' => $systemRoot, 'WINDIR' => $systemRoot, 'ComSpec' => $systemRoot.'\\System32\\cmd.exe']
-            );
+            $systemRoot = dirname($this->windowsTool('cmd.exe'), 2);
+            $process = new Process($command, null,
+                ['SystemRoot' => $systemRoot, 'WINDIR' => $systemRoot, 'ComSpec' => $this->windowsTool('cmd.exe')]);
             $process->setTimeout($timeout);
             $process->run();
-
+            $successful = $process->isSuccessful();
+            $output = $this->normalizeProcessText($process->getOutput());
+            $error = $this->normalizeProcessText($process->getErrorOutput());
             return [
-                'successful' => $process->isSuccessful(),
-                'output' => $this->normalizeProcessText($process->getOutput()),
-                'error' => $this->normalizeProcessText($process->getErrorOutput()),
+                'successful' => $successful, 'output' => $output,
+                'error' => $successful ? '' : ($error ?: 'Windows returned exit code '.$process->getExitCode().'. See command output.'),
                 'exit_code' => $process->getExitCode(),
             ];
         } catch (Throwable $e) {
-            return ['successful' => false, 'output' => '', 'error' => $e->getMessage(), 'exit_code' => null];
+            return ['successful' => false,
+                'output' => $process?->isStarted() ? $this->normalizeProcessText($process->getOutput()) : '',
+                'error' => $e->getMessage(), 'exit_code' => null, 'timed_out' => $e instanceof ProcessTimedOutException];
         }
+    }
+
+    private function windowsTool(string $relative): string
+    {
+        $systemRoot = getenv('SystemRoot') ?: getenv('WINDIR')
+            ?: ($_SERVER['SystemRoot'] ?? null) ?: ($_SERVER['WINDIR'] ?? null) ?: 'C:\\Windows';
+        return rtrim($systemRoot, '\\/').'\\System32\\'.$relative;
     }
 
     private function normalizeProcessText(string $value): string
