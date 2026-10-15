@@ -1,6 +1,9 @@
 <?php
     $story = $incident->story();
     $attempt = $incident->latestRecovery();
+    $previousAttempts = $attempt
+        ? $incident->recoveryActions()->where('id', '!=', $attempt->id)->with(['beforeHealthCheck', 'afterHealthCheck'])->get()
+        : collect();
 ?>
 <section class="detail-stack record-grid">
     <article class="case-card">
@@ -18,16 +21,20 @@
         <?php endif; ?>
     </article>
 
-    <article class="case-card">
-        <h2>Repair request and result</h2>
+    <article class="case-card case-repair-card">
+        <div class="case-card-head">
+            <h2><?php echo e($attempt ? 'Latest repair request and result' : 'Repair request and result'); ?></h2>
+            <?php if($incident->canRepair()): ?>
+                <form method="POST" action="<?php echo e(route('incidents.recover', $incident)); ?>" class="js-busy-form case-repair-action" data-busy-text="Checking the current condition and verifying the repair outcome...">
+                    <?php echo csrf_field(); ?>
+                    <button class="button button-primary" type="submit">Run repair</button>
+                </form>
+            <?php endif; ?>
+        </div>
         <p class="case-fact" data-story-repair><?php echo e($story['repair']); ?></p>
         <?php if($incident->canRepair()): ?>
             <p class="quiet">Available action: <code><?php echo e($incident->repairCommand()); ?></code></p>
             <p class="quiet"><?php echo e($incident->device?->is_local ? 'Checks the condition before deciding whether to run a command.' : 'Queues a command for the endpoint; completion must be reported separately.'); ?></p>
-            <form method="POST" action="<?php echo e(route('incidents.recover', $incident)); ?>" class="js-busy-form" data-busy-text="Checking the current condition and verifying the repair outcome...">
-                <?php echo csrf_field(); ?>
-                <button class="button button-primary" type="submit">Run repair</button>
-            </form>
         <?php elseif($incident->is_active && filled($incident->repairCommand()) && $incident->device && ! $incident->device->is_local): ?>
             <p class="quiet">This computer is not reporting, so the command cannot be sent.</p>
         <?php elseif($incident->is_active): ?>
@@ -54,7 +61,8 @@
 </section>
 <?php if($attempt): ?>
     <details class="repair-evidence">
-        <summary>Measurements and command details</summary>
+        <summary>Latest request: measurements and command details</summary>
+        <p class="case-when">Request recorded <?php echo e($attempt->started_at?->format('M j, g:i:s A')); ?></p>
         <p class="quiet">Command: <?php echo e($attempt->executionLabel()); ?>. Outcome: <?php echo e($attempt->verificationLabel()); ?>.</p>
         <?php if($attempt->command_exit_code !== null): ?><p class="quiet">Command exit code: <?php echo e($attempt->command_exit_code); ?></p><?php endif; ?>
         <?php $__currentLoopData = ['Before' => $attempt->beforeHealthCheck, 'After' => $attempt->afterHealthCheck]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $stage => $evidence): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
@@ -64,6 +72,26 @@
         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
         <?php if($attempt->error_message): ?><p class="command-error"><?php echo e($attempt->error_message); ?></p><?php endif; ?>
         <?php if($attempt->output_excerpt): ?><p class="quiet"><b>Stored command output (excerpt)</b></p><pre class="command-output"><?php echo e($attempt->output_excerpt); ?></pre><?php endif; ?>
+    </details>
+<?php endif; ?>
+<?php if($previousAttempts->isNotEmpty()): ?>
+    <details class="repair-evidence repair-history">
+        <summary>Previous repair requests (<?php echo e($previousAttempts->count()); ?>)</summary>
+        <?php $__currentLoopData = $previousAttempts; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $previous): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+            <article class="repair-request-record" data-recovery-id="<?php echo e($previous->id); ?>">
+                <p class="case-when"><b><?php echo e($previous->started_at?->format('M j, g:i:s A')); ?> · <?php echo e($previous->action_label); ?></b></p>
+                <p><?php echo e($previous->outcomeSummary()); ?></p>
+                <p class="quiet">Command: <?php echo e($previous->execution_status === 'pending' || $previous->execution_status === null ? 'Command result not recorded' : $previous->executionLabel()); ?>. Outcome: <?php echo e($previous->verification_status === 'pending' || $previous->verification_status === null ? 'Verification result not recorded' : $previous->verificationLabel()); ?>.</p>
+                <?php if($previous->command_exit_code !== null): ?><p class="quiet">Command exit code: <?php echo e($previous->command_exit_code); ?></p><?php endif; ?>
+                <?php $__currentLoopData = ['Before' => $previous->beforeHealthCheck, 'After' => $previous->afterHealthCheck]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $stage => $evidence): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
+                    <?php if($evidence): ?>
+                        <p><b><?php echo e($stage); ?>:</b> <?php echo e($evidence->checked_at->format('M j, g:i:s A')); ?> · <?php echo e($evidence->diagnosis_title ?: $evidence->diagnosis_code); ?> · IPv4 <?php echo e($evidence->local_ip ?: 'None'); ?> · <?php echo e($evidence->interface_name ?: 'Unknown adapter'); ?></p>
+                    <?php endif; ?>
+                <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
+                <?php if($previous->error_message): ?><p class="command-error"><?php echo e($previous->error_message); ?></p><?php endif; ?>
+                <?php if($previous->output_excerpt): ?><p class="quiet"><b>Stored command output (excerpt)</b></p><pre class="command-output"><?php echo e($previous->output_excerpt); ?></pre><?php endif; ?>
+            </article>
+        <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
     </details>
 <?php endif; ?>
 <?php /**PATH C:\xampp\htdocs\NetRescue_CIT_Final\resources\views/incidents/case.blade.php ENDPATH**/ ?>

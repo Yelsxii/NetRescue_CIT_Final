@@ -31,19 +31,26 @@ class RecoveryAction extends Model
     {
         if ($this->execution_status === 'skipped') {
             return match ($this->verification_status) {
-                'already_recovered' => 'No repair was run. The pre-repair check already showed recovery.',
+                'already_recovered' => 'No command was run for this request. Its pre-repair check already showed recovery.',
                 'unread' => 'No repair was run because the pre-repair reading did not finish.',
                 'adapter_changed' => 'No repair was run because Windows selected a different adapter.',
                 default => 'No repair was run because the pre-repair check recorded a different condition.',
             };
         }
         if (! $this->completed_at) {
-            return 'Repair requested; execution and verification are pending.';
+            return match ($this->execution_status) {
+                'completed' => 'The command completed; follow-up verification has not finished. Recovery is not yet verified.',
+                'failed' => 'The command did not complete successfully; no completed follow-up reading is recorded yet.',
+                default => 'Repair requested; command completion and recovery are not recorded yet.',
+            };
         }
         if ($this->beforeHealthCheck?->diagnosis_code === 'healthy') {
             return 'The connection was already healthy before this attempt. This attempt did not verify a recovery.';
         }
         if ($this->execution_status === 'failed') {
+            if ($this->verification_status === 'unread') {
+                return $this->action_label.' did not complete successfully, and the follow-up reading did not finish.';
+            }
             return $this->action_label.' did not complete successfully. The network result was checked separately.';
         }
         if ($this->success) {
@@ -75,7 +82,7 @@ class RecoveryAction extends Model
     public function verificationLabel(): string
     {
         return match ($this->verification_status) {
-            'already_recovered' => 'Already recovered before any command was run',
+            'already_recovered' => 'Pre-repair check already healthy; this request ran no command',
             'verified' => 'Recovery verified after the command',
             'not_verified' => 'Recovery not verified',
             'changed_condition' => 'A different condition was measured',

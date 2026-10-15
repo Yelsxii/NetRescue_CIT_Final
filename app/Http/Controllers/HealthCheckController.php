@@ -4,12 +4,19 @@ namespace App\Http\Controllers;
 
 use App\Models\Incident;
 use App\Services\Network\NetworkHealthService;
+use App\Services\Network\NetworkRequestTimeout;
 use Illuminate\Http\RedirectResponse;
+use Throwable;
 
 class HealthCheckController extends Controller
 {
-    public function store(NetworkHealthService $healthService): RedirectResponse
+    public function store(NetworkHealthService $healthService, NetworkRequestTimeout $requestTimeout): RedirectResponse
     {
+        try {
+            $requestTimeout->prepareCheck();
+        } catch (Throwable $e) {
+            return back()->with('toast', ['type' => 'warning', 'title' => 'Central check could not start', 'message' => $e->getMessage()]);
+        }
         $result = $healthService->run('manual', true);
         $check = $result['check'];
 
@@ -29,7 +36,7 @@ class HealthCheckController extends Controller
         ]);
     }
 
-    public function retest(Incident $incident, NetworkHealthService $healthService): RedirectResponse
+    public function retest(Incident $incident, NetworkHealthService $healthService, NetworkRequestTimeout $requestTimeout): RedirectResponse
     {
         $incident->loadMissing('device');
 
@@ -41,6 +48,11 @@ class HealthCheckController extends Controller
             ]);
         }
 
+        try {
+            $requestTimeout->prepareCheck();
+        } catch (Throwable $e) {
+            return back()->with('toast', ['type' => 'warning', 'title' => 'Re-test could not start', 'message' => $e->getMessage()]);
+        }
         $result = $healthService->run('manual', true);
         $check = $result['check'];
 

@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use App\Models\AgentCommand;
 use App\Models\Incident;
 use App\Models\RecoveryAction;
+use App\Services\Network\NetworkRequestTimeout;
 use App\Services\Network\RecoveryService;
 use Illuminate\Http\RedirectResponse;
 use Throwable;
 
 class RecoveryController extends Controller
 {
-    public function store(Incident $incident, RecoveryService $recoveryService): RedirectResponse
+    public function store(Incident $incident, RecoveryService $recoveryService, NetworkRequestTimeout $requestTimeout): RedirectResponse
     {
         $incident->loadMissing(['device', 'latestHealthCheck']);
 
@@ -52,6 +53,7 @@ class RecoveryController extends Controller
         }
 
         try {
+            $requestTimeout->prepareRecovery((string) $incident->recovery_action_code, $incident->code);
             $recovery = $recoveryService->attempt($incident);
         } catch (Throwable $e) {
             return back()->with('toast', ['type' => 'danger', 'title' => 'Recovery could not start', 'message' => $e->getMessage()]);

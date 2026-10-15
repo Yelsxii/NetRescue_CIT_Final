@@ -197,4 +197,123 @@ class RecoveryEvidenceTest extends TestCase
         $this->assertSame('restart_adapter', $incident->fresh()->recovery_action_code);
         $this->assertSame('Restart next.', $incident->fresh()->recommended_action);
     }
+
+    public function test_command_result_is_retained_when_follow_up_verification_errors(): void
+    {
+        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
+        $health = Mockery::mock(NetworkHealthService::class);
+        $health->shouldReceive('run')->once()->with('recovery_before', false)->andReturn(['check' => $before]);
+        $health->shouldReceive('run')->once()->with('recovery_after', false)->andReturnUsing(function () use ($incident) {
+            $saved = RecoveryAction::where('incident_id', $incident->id)->firstOrFail();
+            $this->assertSame('completed', $saved->execution_status);
+            $this->assertSame(0, $saved->command_exit_code);
+            $this->assertNull($saved->success);
+            $this->assertNull($saved->completed_at);
+            $this->assertStringContainsString('follow-up verification has not finished', $saved->outcomeSummary());
+            throw new \RuntimeException('Simulated follow-up interruption');
+        });
+        $this->app->instance(NetworkHealthService::class, $health); $this->command(true);
+        $result = app(RecoveryService::class)->attempt($incident);
+        $this->assertSame('completed', $result->execution_status);
+        $this->assertSame('unread', $result->verification_status);
+        $this->assertSame(0, $result->command_exit_code);
+        $this->assertNull($result->after_health_check_id);
+        $this->assertFalse($result->success);
+        $this->assertNotNull($result->completed_at);
+        $this->assertStringContainsString('Simulated follow-up interruption', $result->error_message);
+        $this->assertSame('active', $incident->fresh()->status);
+        $this->assertStringContainsString('current condition has not been verified', $incident->fresh()->resolutionLabel());
+    }
+
+    public function test_command_error_is_retained_if_follow_up_also_errors(): void
+    {
+        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
+        $health = Mockery::mock(NetworkHealthService::class);
+        $health->shouldReceive('run')->once()->with('recovery_before', false)->andReturn(['check' => $before]);
+        $health->shouldReceive('run')->once()->with('recovery_after', false)->andReturnUsing(function () use ($incident) {
+            $saved = RecoveryAction::where('incident_id', $incident->id)->firstOrFail();
+            $this->assertSame('failed', $saved->execution_status);
+            $this->assertSame('Access denied', $saved->error_message);
+            throw new \RuntimeException('Verification unavailable');
+        });
+        $this->app->instance(NetworkHealthService::class, $health); $this->command(false);
+        $result = app(RecoveryService::class)->attempt($incident);
+        $this->assertSame('failed', $result->execution_status);
+        $this->assertStringContainsString('Access denied', $result->error_message);
+        $this->assertStringContainsString('Verification unavailable', $result->error_message);
+        $this->assertStringContainsString('follow-up reading did not finish', $result->outcomeSummary());
+    }
+
+    public function test_incomplete_verification_does_not_claim_the_adapter_is_still_disabled(): void
+    {
+        $before = $this->check('adapter_disabled', ['local_ip' => null, 'probe_meta' => ['adapter_state' => 'disabled']]);
+        $incident = $this->incident($before);
+        $incident->update(['code' => 'adapter_disabled', 'title' => 'Network Adapter Disabled']);
+        RecoveryAction::create(['device_id' => $incident->device_id, 'incident_id' => $incident->id,
+            'action_code' => 'enable_adapter', 'action_label' => 'Enable the adapter',
+            'before_health_check_id' => $before->id, 'started_at' => now(),
+            'execution_status' => 'completed', 'verification_status' => 'pending', 'command_exit_code' => 0]);
+        $story = $incident->fresh()->story();
+        $this->assertStringContainsString('current condition has not been verified', $story['resolution']);
+        $this->assertStringContainsString('The command completed', $story['repair']);
+        foreach ([$this->get('/history'), $this->withHeaders(['X-Panel' => '1'])->get('/incidents/'.$incident->id)] as $response) {
+            $response->assertOk()->assertSeeText($story['resolution'])->assertSeeText($story['repair']);
+        }
+        $unknown = new RecoveryAction(['execution_status' => 'pending', 'verification_status' => 'pending']);
+        $this->assertStringContainsString('not recorded yet', $unknown->outcomeSummary());
+    }
+
+    public function test_an_unreadable_follow_up_preserves_execution_and_requests_a_fresh_check(): void
+    {
+        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
+        $this->measurements($before, $this->check('configuration_unreadable')); $this->command(true);
+        $result = app(RecoveryService::class)->attempt($incident);
+        $this->assertSame('completed', $result->execution_status);
+        $this->assertSame('unread', $result->verification_status);
+        $this->assertFalse($result->success);
+        $this->assertSame('active', $incident->fresh()->status);
+        $this->assertStringContainsString('Run Central Check', $incident->fresh()->recommended_action);
+        $this->assertStringContainsString('current condition has not been verified', $incident->fresh()->resolutionLabel());
+    }
+
+    public function test_a_skipped_retry_keeps_the_earlier_interrupted_request_visible(): void
+    {
+        $opened = $this->check('adapter_disabled', ['local_ip' => null, 'diagnosis_title' => 'Network Adapter Disabled', 'probe_meta' => ['adapter_state' => 'disabled']]);
+        $incident = $this->incident($opened);
+        $incident->update(['code' => 'adapter_disabled', 'title' => 'Network Adapter Disabled', 'recovery_action_code' => 'enable_adapter']);
+        $earlier = RecoveryAction::create(['device_id' => $incident->device_id, 'incident_id' => $incident->id,
+            'action_code' => 'enable_adapter', 'action_label' => 'Enable the adapter',
+            'before_health_check_id' => $opened->id, 'started_at' => now()->subMinutes(2),
+            'execution_status' => 'pending', 'verification_status' => 'pending']);
+        $healthy = $this->check('healthy');
+        $this->measurements($healthy); $this->command(null);
+        $latest = app(RecoveryService::class)->attempt($incident);
+        $this->assertSame('already_recovered', $latest->verification_status);
+        $this->assertSame('pending', $earlier->fresh()->execution_status);
+        $this->assertNull($earlier->fresh()->completed_at);
+        $this->assertNull($earlier->fresh()->success);
+        $response = $this->withHeaders(['X-Panel' => '1'])->get('/incidents/'.$incident->id);
+        $response->assertOk()->assertSeeText('No command was run for this request')
+            ->assertSeeText('Latest repair request and result')->assertSeeText('Previous repair requests (1)')
+            ->assertSeeText('Command result not recorded')->assertSee('data-recovery-id="'.$earlier->id.'"', false);
+        $this->assertStringContainsString('latest pre-repair check', $incident->fresh()->resolutionLabel());
+    }
+
+    public function test_a_later_skipped_request_does_not_hide_the_previous_command_error(): void
+    {
+        $opened = $this->check('dhcp_issue'); $incident = $this->incident($opened);
+        $earlier = RecoveryAction::create(['device_id' => $incident->device_id, 'incident_id' => $incident->id,
+            'action_code' => 'renew_dhcp', 'action_label' => 'Release and renew the address',
+            'before_health_check_id' => $opened->id, 'after_health_check_id' => $opened->id,
+            'started_at' => now()->subMinutes(2), 'completed_at' => now()->subMinute(),
+            'execution_status' => 'failed', 'verification_status' => 'not_verified',
+            'success' => false, 'command_exit_code' => 1, 'error_message' => 'Access is denied (Windows System Error 5).']);
+        $this->measurements($this->check('healthy')); $this->command(null);
+        app(RecoveryService::class)->attempt($incident);
+        $this->withHeaders(['X-Panel' => '1'])->get('/incidents/'.$incident->id)->assertOk()
+            ->assertSeeText('No command was run for this request')
+            ->assertSeeText('Previous repair requests (1)')->assertSeeText('Access is denied (Windows System Error 5).')
+            ->assertSeeText('Command exit code: 1');
+        $this->assertFalse($earlier->fresh()->success);
+    }
 }

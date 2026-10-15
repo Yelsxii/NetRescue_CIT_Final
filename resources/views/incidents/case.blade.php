@@ -1,6 +1,9 @@
 @php
     $story = $incident->story();
     $attempt = $incident->latestRecovery();
+    $previousAttempts = $attempt
+        ? $incident->recoveryActions()->where('id', '!=', $attempt->id)->with(['beforeHealthCheck', 'afterHealthCheck'])->get()
+        : collect();
 @endphp
 <section class="detail-stack record-grid">
     <article class="case-card">
@@ -18,16 +21,20 @@
         @endif
     </article>
 
-    <article class="case-card">
-        <h2>Repair request and result</h2>
+    <article class="case-card case-repair-card">
+        <div class="case-card-head">
+            <h2>{{ $attempt ? 'Latest repair request and result' : 'Repair request and result' }}</h2>
+            @if($incident->canRepair())
+                <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form case-repair-action" data-busy-text="Checking the current condition and verifying the repair outcome...">
+                    @csrf
+                    <button class="button button-primary" type="submit">Run repair</button>
+                </form>
+            @endif
+        </div>
         <p class="case-fact" data-story-repair>{{ $story['repair'] }}</p>
         @if($incident->canRepair())
             <p class="quiet">Available action: <code>{{ $incident->repairCommand() }}</code></p>
             <p class="quiet">{{ $incident->device?->is_local ? 'Checks the condition before deciding whether to run a command.' : 'Queues a command for the endpoint; completion must be reported separately.' }}</p>
-            <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form" data-busy-text="Checking the current condition and verifying the repair outcome...">
-                @csrf
-                <button class="button button-primary" type="submit">Run repair</button>
-            </form>
         @elseif($incident->is_active && filled($incident->repairCommand()) && $incident->device && ! $incident->device->is_local)
             <p class="quiet">This computer is not reporting, so the command cannot be sent.</p>
         @elseif($incident->is_active)
@@ -54,7 +61,8 @@
 </section>
 @if($attempt)
     <details class="repair-evidence">
-        <summary>Measurements and command details</summary>
+        <summary>Latest request: measurements and command details</summary>
+        <p class="case-when">Request recorded {{ $attempt->started_at?->format('M j, g:i:s A') }}</p>
         <p class="quiet">Command: {{ $attempt->executionLabel() }}. Outcome: {{ $attempt->verificationLabel() }}.</p>
         @if($attempt->command_exit_code !== null)<p class="quiet">Command exit code: {{ $attempt->command_exit_code }}</p>@endif
         @foreach(['Before' => $attempt->beforeHealthCheck, 'After' => $attempt->afterHealthCheck] as $stage => $evidence)
@@ -64,5 +72,25 @@
         @endforeach
         @if($attempt->error_message)<p class="command-error">{{ $attempt->error_message }}</p>@endif
         @if($attempt->output_excerpt)<p class="quiet"><b>Stored command output (excerpt)</b></p><pre class="command-output">{{ $attempt->output_excerpt }}</pre>@endif
+    </details>
+@endif
+@if($previousAttempts->isNotEmpty())
+    <details class="repair-evidence repair-history">
+        <summary>Previous repair requests ({{ $previousAttempts->count() }})</summary>
+        @foreach($previousAttempts as $previous)
+            <article class="repair-request-record" data-recovery-id="{{ $previous->id }}">
+                <p class="case-when"><b>{{ $previous->started_at?->format('M j, g:i:s A') }} · {{ $previous->action_label }}</b></p>
+                <p>{{ $previous->outcomeSummary() }}</p>
+                <p class="quiet">Command: {{ $previous->execution_status === 'pending' || $previous->execution_status === null ? 'Command result not recorded' : $previous->executionLabel() }}. Outcome: {{ $previous->verification_status === 'pending' || $previous->verification_status === null ? 'Verification result not recorded' : $previous->verificationLabel() }}.</p>
+                @if($previous->command_exit_code !== null)<p class="quiet">Command exit code: {{ $previous->command_exit_code }}</p>@endif
+                @foreach(['Before' => $previous->beforeHealthCheck, 'After' => $previous->afterHealthCheck] as $stage => $evidence)
+                    @if($evidence)
+                        <p><b>{{ $stage }}:</b> {{ $evidence->checked_at->format('M j, g:i:s A') }} · {{ $evidence->diagnosis_title ?: $evidence->diagnosis_code }} · IPv4 {{ $evidence->local_ip ?: 'None' }} · {{ $evidence->interface_name ?: 'Unknown adapter' }}</p>
+                    @endif
+                @endforeach
+                @if($previous->error_message)<p class="command-error">{{ $previous->error_message }}</p>@endif
+                @if($previous->output_excerpt)<p class="quiet"><b>Stored command output (excerpt)</b></p><pre class="command-output">{{ $previous->output_excerpt }}</pre>@endif
+            </article>
+        @endforeach
     </details>
 @endif

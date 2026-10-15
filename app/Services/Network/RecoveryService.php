@@ -4,6 +4,7 @@ namespace App\Services\Network;
 
 use App\Models\Incident;
 use App\Models\RecoveryAction;
+use Throwable;
 
 class RecoveryService
 {
@@ -49,10 +50,32 @@ class RecoveryService
         }
 
         $command = $this->commands->run($actionCode, $incident->code, $before->interface_name);
+        // Persist execution before waiting for the next reading. A later timeout must
+        // not erase the command result or turn an enabled adapter into a claimed failure.
+        $recovery->update([
+            'execution_status' => $command['successful'] ? 'completed' : 'failed',
+            'verification_status' => 'pending', 'success' => null,
+            'command_exit_code' => $command['exit_code'] ?? null,
+            'output_excerpt' => $this->excerpt($command['output']),
+            'error_message' => $command['successful'] ? null : $this->excerpt($command['error']),
+        ]);
         if ($command['successful']) {
             usleep(in_array($actionCode, ['renew_dhcp', 'enable_adapter', 'restart_adapter'], true) ? 2500000 : 500000);
         }
-        $afterResult = $this->healthService->run('recovery_after', false);
+        try {
+            $afterResult = $this->healthService->run('recovery_after', false);
+        } catch (Throwable $e) {
+            report($e);
+            $recovery->update([
+                'completed_at' => now(), 'success' => false, 'verification_status' => 'unread',
+                'error_message' => $this->excerpt(implode("\n", array_filter([
+                    $recovery->error_message, 'Follow-up verification did not finish: '.$e->getMessage(),
+                ]))),
+            ]);
+            $incident->update(['recommended_action' => 'Run Central Check to measure the connection. The command result is recorded, but recovery has not been verified.']);
+
+            return $recovery->fresh(['beforeHealthCheck', 'afterHealthCheck', 'incident']);
+        }
         $after = $afterResult['check'];
         $sameAdapter = blank($before->interface_name) || $before->interface_name === $after->interface_name;
         $conditionCleared = $after->readingFinished() && $after->platform_supported && $sameAdapter
@@ -76,6 +99,8 @@ class RecoveryService
             $this->incidentManager->synchronize($after, $afterResult['diagnosis']);
         } elseif ($sameAdapter && $after->readingFinished() && $after->platform_supported && $after->diagnosis_code !== $incident->code) {
             $this->incidentManager->synchronize($after, $afterResult['diagnosis']);
+        } elseif (! $after->readingFinished()) {
+            $incident->update(['recommended_action' => 'Run Central Check to measure the connection. The command result is recorded, but recovery has not been verified.']);
         } elseif ($after->readingFinished() && $sameAdapter) {
             if ($command['successful']) {
                 [$nextAction, $recommendation] = $this->plan->nextStep($incident, $actionCode, $after);
