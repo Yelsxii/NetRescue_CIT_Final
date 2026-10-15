@@ -8,6 +8,16 @@
         @case('history')
             <path d="M12 8v5l3 2"/><path d="M3.05 11a9 9 0 1 0 .5-3.5"/><path d="M3 3v5h5"/>
             @break
+        @case('checks')
+            <rect x="8" y="2" width="8" height="4" rx="1"/>
+            <path d="M16 4h1.5A2.5 2.5 0 0 1 20 6.5v13A2.5 2.5 0 0 1 17.5 22h-11A2.5 2.5 0 0 1 4 19.5v-13A2.5 2.5 0 0 1 6.5 4H8"/>
+            <path d="m8.5 13.2 2.2 2.2 4.6-4.8"/>
+            @break
+        @case('run-check')
+            <rect x="8" y="2" width="8" height="4" rx="1"/>
+            <path d="M16 4h1.5A2.5 2.5 0 0 1 20 6.5v13A2.5 2.5 0 0 1 17.5 22h-11A2.5 2.5 0 0 1 4 19.5v-13A2.5 2.5 0 0 1 6.5 4H8"/>
+            <path d="M10.3 10.4v6.4l5.4-3.2z" fill="currentColor" stroke="none"/>
+            @break
         @case('incident')
             <path d="M12 3 3 19h18L12 3Z"/><path d="M12 9v4M12 17h.01"/>
             @break

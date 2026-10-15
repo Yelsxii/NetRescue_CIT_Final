@@ -13,7 +13,7 @@
             @endif
             <form action="{{ route('health-checks.store') }}" method="POST" class="js-busy-form" data-busy-text="Checking this computer's network…">
                 @csrf
-                <button class="button button-primary" type="submit"><x-icon name="refresh" size="15" /> Run Check</button>
+                <button class="button button-primary" type="submit"><x-icon name="run-check" size="15" /> Run Check</button>
             </form>
         </div>
     </header>

@@ -17,25 +17,13 @@
     <link rel="stylesheet" href="<?php echo e(asset('css/app.css')); ?>">
 </head>
 <body data-latest-check-id="<?php echo e(\App\Models\HealthCheck::where('device_id', \App\Models\Device::localHost()->id)->latest('checked_at')->orderByDesc('id')->value('id') ?? ''); ?>">
-<?php
-    $hour = now()->hour;
-    $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
-?>
 <div class="app-shell" id="appShell">
     <aside class="sidebar" id="sidebar">
         <div class="side-top">
             <button type="button" class="brand-toggle" id="sidebarCollapseButton" aria-label="Collapse menu" title="Collapse menu">
-                <span class="menu-lines"><i></i><i></i><i></i></span>
-                <span class="brand-copy">
-                    <strong>NetRescue</strong>
-                    <span>CIT</span>
-                </span>
+                <img class="brand-logo" src="<?php echo e(asset('images/netrescue-logo.png')); ?>" alt="NetRescue">
+                <img class="brand-mark" src="<?php echo e(asset('images/netrescue-mark.png')); ?>" alt="">
             </button>
-        </div>
-
-        <div class="greet">
-            <strong><?php echo e($greeting); ?></strong>
-            <span>CIT Administrator</span>
         </div>
 
         <nav class="main-nav" aria-label="Primary navigation">
@@ -66,14 +54,14 @@
             <a href="<?php echo e(route('checks.index')); ?>" class="nav-link <?php echo e(request()->routeIs('checks.*') ? 'is-active' : ''); ?>" title="Checks">
                 <?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
 <?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'history','size' => '18']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'checks','size' => '18']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
 <?php $component->withName('icon'); ?>
 <?php if ($component->shouldRender()): ?>
 <?php $__env->startComponent($component->resolveView(), $component->data()); ?>
 <?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
 <?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
 <?php endif; ?>
-<?php $component->withAttributes(['name' => 'history','size' => '18']); ?>
+<?php $component->withAttributes(['name' => 'checks','size' => '18']); ?>
 <?php echo $__env->renderComponent(); ?>
 <?php endif; ?>
 <?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
@@ -135,14 +123,6 @@
         </nav>
 
         <div class="side-spacer"></div>
-
-        <div class="side-user">
-            <div class="avatar">CIT</div>
-            <div class="side-user-copy">
-                <strong>This computer</strong>
-                <span>Local monitoring</span>
-            </div>
-        </div>
     </aside>
 
     <button type="button" class="sidebar-scrim" id="sidebarScrim" aria-label="Close menu"></button>
@@ -153,26 +133,6 @@
                 <button type="button" class="menu-toggle mobile-menu" id="mobileMenuButton" aria-label="Open menu">
                     <span class="menu-lines"><i></i><i></i><i></i></span>
                 </button>
-                <span class="local-context"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
-<?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
-<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'computer','size' => '16']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
-<?php $component->withName('icon'); ?>
-<?php if ($component->shouldRender()): ?>
-<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
-<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
-<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
-<?php endif; ?>
-<?php $component->withAttributes(['name' => 'computer','size' => '16']); ?>
-<?php echo $__env->renderComponent(); ?>
-<?php endif; ?>
-<?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
-<?php $attributes = $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
-<?php unset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
-<?php endif; ?>
-<?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
-<?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
-<?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
-<?php endif; ?> This computer only</span>
             </div>
             <div class="topbar-actions">
                 <time id="appClock" class="app-clock" datetime=""><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>

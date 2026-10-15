@@ -17,25 +17,13 @@
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
 <body data-latest-check-id="{{ \App\Models\HealthCheck::where('device_id', \App\Models\Device::localHost()->id)->latest('checked_at')->orderByDesc('id')->value('id') ?? '' }}">
-@php
-    $hour = now()->hour;
-    $greeting = $hour < 12 ? 'Good morning' : ($hour < 18 ? 'Good afternoon' : 'Good evening');
-@endphp
 <div class="app-shell" id="appShell">
     <aside class="sidebar" id="sidebar">
         <div class="side-top">
             <button type="button" class="brand-toggle" id="sidebarCollapseButton" aria-label="Collapse menu" title="Collapse menu">
-                <span class="menu-lines"><i></i><i></i><i></i></span>
-                <span class="brand-copy">
-                    <strong>NetRescue</strong>
-                    <span>CIT</span>
-                </span>
+                <img class="brand-logo" src="{{ asset('images/netrescue-logo.png') }}" alt="NetRescue">
+                <img class="brand-mark" src="{{ asset('images/netrescue-mark.png') }}" alt="">
             </button>
-        </div>
-
-        <div class="greet">
-            <strong>{{ $greeting }}</strong>
-            <span>CIT Administrator</span>
         </div>
 
         <nav class="main-nav" aria-label="Primary navigation">
@@ -45,7 +33,7 @@
                 <span class="nav-label">Dashboard</span>
             </a>
             <a href="{{ route('checks.index') }}" class="nav-link {{ request()->routeIs('checks.*') ? 'is-active' : '' }}" title="Checks">
-                <x-icon name="history" size="18" />
+                <x-icon name="checks" size="18" />
                 <span class="nav-label">Checks</span>
             </a>
             <a href="{{ route('history.index') }}" class="nav-link {{ request()->routeIs('history.*') || request()->routeIs('incidents.*') ? 'is-active' : '' }}" title="Incidents">
@@ -59,14 +47,6 @@
         </nav>
 
         <div class="side-spacer"></div>
-
-        <div class="side-user">
-            <div class="avatar">CIT</div>
-            <div class="side-user-copy">
-                <strong>This computer</strong>
-                <span>Local monitoring</span>
-            </div>
-        </div>
     </aside>
 
     <button type="button" class="sidebar-scrim" id="sidebarScrim" aria-label="Close menu"></button>
@@ -77,7 +57,6 @@
                 <button type="button" class="menu-toggle mobile-menu" id="mobileMenuButton" aria-label="Open menu">
                     <span class="menu-lines"><i></i><i></i><i></i></span>
                 </button>
-                <span class="local-context"><x-icon name="computer" size="16" /> This computer only</span>
             </div>
             <div class="topbar-actions">
                 <time id="appClock" class="app-clock" datetime=""><x-icon name="clock" size="14" /> <b>--:--</b></time>
