@@ -149,3 +149,32 @@ hardware/drivers, genuine DHCP starvation/APIPA, invalid manual addressing,
 controlled high latency, DHCP-provided DNS failure, multiple-adapter/VPN routing,
 or a real router/ISP outage. Those acceptance cases remain as documented in
 `WINDOWS_FAULT_QA.md`.
+
+## Final PR regression review
+
+Review of PR #2 against `main` identified and corrected three further regressions:
+
+- A sole Up host-only virtual interface without a gateway could hide disabled
+  physical Wi-Fi. The untargeted snapshot shortcut now requires a gateway;
+  otherwise route/physical-adapter selection runs. A production-reader fixture
+  reproduces the virtual-interface/disabled-Wi-Fi case. Explicit targeted reads
+  still retain missing-address/gateway evidence during acquisition.
+- A DNS incident could claim the router answered even when gateway ping failed
+  and only external TCP passed. Its displayed outcome now states the measured
+  external TCP result without inventing a gateway response.
+- Historical gateway incidents could claim external TCP failed when the older
+  probe pipeline had skipped it. Their displayed outcome now describes the
+  unanswered gateway without reinterpreting stored history as a TCP failure.
+
+The added regression cases failed before their fixes. Final isolated Windows PHP
+validation passed **149 tests and 1,168 assertions**. Windows PowerShell 5.1
+fixtures passed **75 checks**: 16 snapshot, 4 transition-reader, 6 adapter-command
+and 49 runner checks. This review used in-memory data, an isolated compiled-view
+directory and process-only test settings; no new laptop faults were injected.
+Existing local/runtime files, `.env` and database-file hashes remained unchanged.
+
+GitHub reported no workflow runs, check runs, commit statuses or submitted
+reviews for the reviewed head, and this repository has no GitHub workflow files.
+CI is therefore unconfigured, not a passing CI result. The PR was mergeable and
+was left as an unmerged draft. The earlier 21 accepted laptop fault runs and the
+lab-coverage limits above remain the physical acceptance evidence.

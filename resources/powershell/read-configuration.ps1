@@ -71,7 +71,11 @@ function Select-SoleSnapshot($Snapshot) {
         $_.Supports([System.Net.NetworkInformation.NetworkInterfaceComponent]::IPv4)
     })
     if ($up.Count -ne 1) { return $null }
-    return Select-TargetSnapshot $Snapshot $up[0].Name
+    $selected = Select-TargetSnapshot $Snapshot $up[0].Name
+    # A host-only virtual interface can remain Up while physical Wi-Fi is off.
+    # With no gateway, retain the physical-adapter administrative-state fallback.
+    if (-not $selected -or -not $selected.Gateway) { return $null }
+    return $selected
 }
 
 try {
