@@ -23,7 +23,7 @@ class DashboardController extends Controller
         $measuredCheck = $readingIncomplete
             ? HealthCheck::query()
                 ->where('device_id', $localDevice->id)
-                ->where('diagnosis_code', '!=', 'configuration_unreadable')
+                ->whereNotIn('diagnosis_code', ['configuration_unreadable', 'probe_unavailable'])
                 ->latest('checked_at')->orderByDesc('id')
                 ->first()
             : $localLatest;

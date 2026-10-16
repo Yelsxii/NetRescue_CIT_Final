@@ -10,7 +10,10 @@ return [
     'timeouts' => [
         'powershell_seconds' => 20,
         'ping_seconds' => 5,
-        'dns_seconds' => 6,
+        // A completed Windows resolver timeout took about 9s on this laptop.
+        // Include PowerShell startup so an unreachable DNS server can return
+        // its measured result; an outer process timeout remains unmeasured.
+        'dns_seconds' => 20,
         'socket_seconds' => 2.5,
         'recovery_seconds' => 35,
         // Adapter state changes may still be running when the old 35s cap ends.

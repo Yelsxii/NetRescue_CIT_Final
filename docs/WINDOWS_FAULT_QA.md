@@ -1,9 +1,11 @@
 # Run real fault QA on the Windows laptop
 
-The changes were tested in Linux with simulated Windows boundaries. These
-instructions and scripts have **not yet been executed on the user's laptop**.
-The scripts run locally; ChatGPT's cloud terminal has no PowerShell or desktop
-connection to that laptop.
+The initial software checks used Linux with simulated Windows boundaries.
+Actual Windows laptop results are recorded in
+[the 16 October 2026 acceptance report](WINDOWS_LAPTOP_QA_RESULTS_2026-10-16.md).
+Always confirm the current terminal is on the intended Windows host and has
+Windows administrator rights before injecting a fault. A sandbox permission
+grant does not itself elevate the Windows process.
 
 ## Prepare
 
@@ -98,6 +100,11 @@ flooding the network. These cases need additional local/lab acceptance work:
 | High gateway latency | Use controlled delay in a lab network; compare the measured latency with the configured threshold |
 | DHCP-provided DNS still broken | Use a lab DHCP/DNS setup; flush, renew once, and confirm manual handoff if DNS remains broken |
 | Multiple adapters / VPN routing | Use a separate routing test plan; the fault runner deliberately requires a single active IPv4 path |
+
+`GatewayMissing` additionally requires one unchanged DHCP default gateway, no
+manual or persistent default routes, and the default route metric. The runner
+refuses an ambiguous baseline because DHCP renewal cannot reproduce arbitrary
+manual routes or customized metrics.
 
 ## Evidence and timing
 

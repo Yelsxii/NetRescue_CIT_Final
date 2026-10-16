@@ -35,9 +35,23 @@ class NetworkRequestTimeoutTest extends TestCase
         $this->assertGreaterThan(144, $timeout->recoverySeconds('renew_dhcp', 'dhcp_issue'));
         $this->assertGreaterThan(109, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
         $this->assertGreaterThan(60, $timeout->checkSeconds());
-        $this->assertSame(236, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
+        $this->assertSame(80, $timeout->checkSeconds());
+        $this->assertSame(292, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
         config(['netrescue.verification.attempts' => 100, 'netrescue.verification.retry_delay_seconds' => 100]);
-        $this->assertSame(244, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
+        $this->assertSame(300, $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'));
+    }
+
+    public function test_dns_allowance_is_included_in_every_check_and_automatic_follow_up(): void
+    {
+        $timeout = app(NetworkRequestTimeout::class);
+        config(['netrescue.timeouts.dns_seconds' => 6]);
+        $oldCheck = $timeout->checkSeconds();
+        $oldRecovery = $timeout->recoverySeconds('flush_dns', 'dns_failure');
+        config(['netrescue.timeouts.dns_seconds' => 20]);
+
+        $this->assertSame($oldCheck + 14, $timeout->checkSeconds());
+        // One precheck and three verification readings each need the DNS budget.
+        $this->assertSame($oldRecovery + 4 * 14, $timeout->recoverySeconds('flush_dns', 'dns_failure'));
     }
 
     public function test_custom_probe_limits_and_all_configured_targets_are_accounted_for(): void

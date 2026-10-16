@@ -127,11 +127,15 @@ class CheckStory
 
     public static function probeMark(?HealthCheck $check, string $probe, int $warningMs): array
     {
-        if (! $check || ! $check->readingFinished()) {
+        if (! $check || $check->diagnosis_code === 'configuration_unreadable') {
             return ['code' => 'none', 'label' => 'Not measured', 'detail' => 'Reading unavailable'];
         }
-        if (data_get($check->probe_meta, 'probe_states.'.$probe) === 'unavailable') {
+        $state = data_get($check->probe_meta, 'probe_states.'.$probe);
+        if ($state === 'unavailable') {
             return ['code' => 'none', 'label' => 'Not measured', 'detail' => 'Windows test result unavailable'];
+        }
+        if (! $check->readingFinished() && ! in_array($state, ['passed', 'failed', 'skipped'], true)) {
+            return ['code' => 'none', 'label' => 'Not measured', 'detail' => 'Reading unavailable'];
         }
         if (! $check->probeWasRun($probe)) {
             return ['code' => 'none', 'label' => 'Not tested', 'detail' => 'Earlier network prerequisite did not pass'];

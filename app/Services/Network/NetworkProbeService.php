@@ -196,7 +196,7 @@ POWERSHELL;
 } | ConvertTo-Json -Compress -Depth 3
 POWERSHELL;
 
-        $result = $this->runPowerShell($script, (float) config('netrescue.timeouts.dns_seconds', 6));
+        $result = $this->runPowerShell($script, (float) config('netrescue.timeouts.dns_seconds', 20));
         $decoded = $result['successful'] ? json_decode(trim($result['output']), true) : null;
         $addresses = $decoded['addresses'] ?? [];
         if (is_string($addresses)) $addresses = [$addresses];

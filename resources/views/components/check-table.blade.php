@@ -15,14 +15,9 @@
             @forelse($checks as $check)
                 @php
                     $resultTone = $check->diagnosis_code === 'healthy' ? 'ok' : (in_array($check->severity, ['none', 'low'], true) ? 'warn' : 'bad');
-                    $unmeasured = ['code' => 'none', 'label' => '—', 'detail' => 'Not measured'];
-                    if ($check->readingFinished()) {
-                        $gateway = \App\Support\CheckStory::probeMark($check, 'gateway', (int) $warning);
-                        $internet = \App\Support\CheckStory::probeMark($check, 'internet', (int) $warning);
-                        $dns = \App\Support\CheckStory::probeMark($check, 'dns', (int) $warning);
-                    } else {
-                        $gateway = $internet = $dns = $unmeasured;
-                    }
+                    $gateway = \App\Support\CheckStory::probeMark($check, 'gateway', (int) $warning);
+                    $internet = \App\Support\CheckStory::probeMark($check, 'internet', (int) $warning);
+                    $dns = \App\Support\CheckStory::probeMark($check, 'dns', (int) $warning);
                 @endphp
                 <tr>
                     <td>{{ $check->checked_at->format('g:i A') }}</td>

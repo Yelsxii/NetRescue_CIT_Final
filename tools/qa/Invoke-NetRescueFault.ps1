@@ -98,6 +98,22 @@ function Apply-QAFault($Adapter, $Routes, [string[]]$Targets) {
     }
 }
 
+function Assert-QAGatewayRoutes($Routes, $PersistentRoutes, $DhcpConfiguration) {
+    # Windows can label a DHCP gateway NetMgmt. Match its DHCP gateway settings
+    # instead of treating that protocol label alone as proof of a manual route.
+    # Renewal cannot reproduce arbitrary manual routes or customized metrics.
+    $active = @($Routes)
+    $persistent = @($PersistentRoutes)
+    $dhcpGateways = @($DhcpConfiguration.DhcpDefaultGateway | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    $manualGateways = @($DhcpConfiguration.DefaultGateway | Where-Object { -not [string]::IsNullOrWhiteSpace([string]$_) })
+    if ($active.Count -ne 1 -or $persistent.Count -ne 0 -or $DhcpConfiguration.EnableDHCP -ne 1 -or
+        $dhcpGateways.Count -ne 1 -or $manualGateways.Count -ne 0 -or
+        [string]$active[0].NextHop -ne [string]$dhcpGateways[0] -or
+        [string]$active[0].Protocol -notin @('Dhcp', 'NetMgmt') -or [int]$active[0].RouteMetric -ne 0) {
+        throw 'GatewayMissing requires one unmodified DHCP default gateway with no manual or persistent default routes. This baseline is ambiguous; no route was removed.'
+    }
+}
+
 if ($env:OS -ne 'Windows_NT') { throw 'Run this runner on the Windows laptop. This session does not change a remote laptop.' }
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
 $principal = New-Object Security.Principal.WindowsPrincipal($identity)
@@ -140,6 +156,12 @@ if ($up.Count -ne 1 -or $up[0].Name -ne $InterfaceAlias -or $adapter.Status -ne 
 }
 if (-not $routes.Count) { throw 'A baseline IPv4 default route is required.' }
 if ($Fault -in @('NoIpv4', 'GatewayMissing') -and [string]$ipInterface.Dhcp -ne 'Enabled') { throw 'This test requires DHCP; manual IP settings will not be replaced.' }
+if ($Fault -eq 'GatewayMissing') {
+    $persistentRoutes = @(Get-NetRoute -PolicyStore PersistentStore -ErrorAction Stop | Where-Object { $_.InterfaceIndex -eq $adapter.InterfaceIndex -and $_.DestinationPrefix -eq '0.0.0.0/0' })
+    $guid = '{' + ([string]$adapter.InterfaceGuid).Trim('{}') + '}'
+    $dhcpConfiguration = Get-ItemProperty -LiteralPath ('HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\' + $guid) -ErrorAction Stop
+    Assert-QAGatewayRoutes $routes $persistentRoutes $dhcpConfiguration
+}
 
 $script:qaSession = New-Object Microsoft.PowerShell.Commands.WebRequestSession
 $null = Invoke-AppAction '/health-checks' ''

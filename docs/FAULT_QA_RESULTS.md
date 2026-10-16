@@ -1,5 +1,9 @@
 # NetRescue QA results — 16 October 2026
 
+This file records the initial software-only session. Subsequent actual Windows
+laptop fault testing is documented in
+[Windows laptop QA results](WINDOWS_LAPTOP_QA_RESULTS_2026-10-16.md).
+
 **Repository/software QA completed. Real Windows laptop fault injection has not
 been executed in this session.** The available terminal is Linux; no connection
 to the user's laptop PowerShell or desktop was available. No settings on that
