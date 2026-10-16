@@ -3,14 +3,33 @@
     const qsa = (selector, root = document) => [...root.querySelectorAll(selector)];
 
     const root = document.documentElement;
+    const appShell = qs('#appShell');
+    const mainPanel = qs('.main-panel');
     const sidebar = qs('#sidebar');
     const scrim = qs('#sidebarScrim');
+    const mobileMenuButton = qs('#mobileMenuButton');
+    const sidebarCloseButton = qs('#sidebarCloseButton');
+    const mobileViewport = window.matchMedia('(max-width: 980px)');
+    const focusable = (container) => qsa('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', container)
+        .filter((element) => element.tabIndex >= 0 && !element.closest('[hidden], [inert]') && element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden');
+    const trapFocus = (event, container) => {
+        const items = focusable(container);
+        if (!items.length) { event.preventDefault(); container.focus(); return; }
+        const first = items[0];
+        const last = items[items.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !container.contains(document.activeElement))) {
+            event.preventDefault(); last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !container.contains(document.activeElement))) {
+            event.preventDefault(); first.focus();
+        }
+    };
 
     const collapseButton = qs('#sidebarCollapseButton');
     const syncCollapseLabel = () => {
         const collapsed = root.classList.contains('sidebar-collapsed');
         collapseButton?.setAttribute('aria-label', collapsed ? 'Open menu' : 'Collapse menu');
         collapseButton?.setAttribute('title', collapsed ? 'Open menu' : 'Collapse menu');
+        collapseButton?.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
     };
 
     const setDesktopCollapsed = (collapsed) => {
@@ -52,16 +71,40 @@
     });
 
     const openMobileSidebar = () => {
+        if (!mobileViewport.matches) return;
         sidebar?.classList.add('is-open');
+        if (sidebar) {
+            sidebar.inert = false;
+            sidebar.setAttribute('role', 'dialog');
+            sidebar.setAttribute('aria-modal', 'true');
+        }
         scrim?.classList.add('is-open');
+        mobileMenuButton?.setAttribute('aria-expanded', 'true');
+        if (mainPanel) mainPanel.inert = true;
         document.body.classList.add('menu-open');
+        sidebarCloseButton?.focus();
     };
 
-    const closeMobileSidebar = () => {
+    const closeMobileSidebar = (restoreFocus = true) => {
+        const wasOpen = sidebar?.classList.contains('is-open');
         sidebar?.classList.remove('is-open');
+        if (sidebar) {
+            sidebar.inert = mobileViewport.matches;
+            sidebar.removeAttribute('role');
+            sidebar.removeAttribute('aria-modal');
+        }
         scrim?.classList.remove('is-open');
+        mobileMenuButton?.setAttribute('aria-expanded', 'false');
+        if (mainPanel) mainPanel.inert = false;
         document.body.classList.remove('menu-open');
+        if (wasOpen && restoreFocus) mobileMenuButton?.focus();
     };
+    const syncSidebarViewport = () => {
+        closeMobileSidebar(false);
+        if (collapseButton) collapseButton.disabled = mobileViewport.matches;
+    };
+    mobileViewport.addEventListener('change', syncSidebarViewport);
+    syncSidebarViewport();
 
     const nav = qs('.main-nav');
     const rail = qs('.nav-rail');
@@ -78,23 +121,36 @@
     nav?.addEventListener('mouseleave', () => placeRail(activeLink));
     window.addEventListener('resize', () => placeRail(qs('.nav-link.is-active', nav || document) || activeLink));
 
-    qs('#mobileMenuButton')?.addEventListener('click', openMobileSidebar);
-    scrim?.addEventListener('click', closeMobileSidebar);
-    qsa('.main-nav .nav-link').forEach((link) => link.addEventListener('click', closeMobileSidebar));
+    mobileMenuButton?.addEventListener('click', openMobileSidebar);
+    sidebarCloseButton?.addEventListener('click', () => closeMobileSidebar());
+    scrim?.addEventListener('click', () => closeMobileSidebar());
+    qsa('.main-nav .nav-link').forEach((link) => link.addEventListener('click', () => closeMobileSidebar()));
 
+    const modalOpeners = new WeakMap();
     const openModal = (id) => {
         const modal = document.getElementById(id);
         if (!modal) return;
+        if (!modal.classList.contains('is-open')) modalOpeners.set(modal, document.activeElement);
+        closeMobileSidebar(false);
         modal.classList.add('is-open');
         modal.setAttribute('aria-hidden', 'false');
+        if (appShell) appShell.inert = true;
         document.body.classList.add('modal-open');
+        (focusable(modal)[0] || qs('[role="dialog"]', modal))?.focus();
     };
 
     const closeModal = (modal) => {
         if (!modal) return;
+        closeMenus();
         modal.classList.remove('is-open');
         modal.setAttribute('aria-hidden', 'true');
-        if (!qsa('.modal-backdrop.is-open').length) document.body.classList.remove('modal-open');
+        if (!qsa('.modal-backdrop.is-open').length) {
+            document.body.classList.remove('modal-open');
+            if (appShell) appShell.inert = false;
+            const opener = modalOpeners.get(modal);
+            if (opener?.isConnected && !opener.closest('[inert]')) opener.focus();
+            else if (mobileViewport.matches) mobileMenuButton?.focus();
+        }
     };
 
     window.NetRescue = { openModal, closeModal };
@@ -106,9 +162,20 @@
     }));
 
     document.addEventListener('keydown', (event) => {
+        const modal = qsa('.modal-backdrop.is-open').at(-1);
+        if (event.key === 'Tab') {
+            if (modal) trapFocus(event, modal);
+            else if (sidebar?.classList.contains('is-open')) trapFocus(event, sidebar);
+            return;
+        }
         if (event.key !== 'Escape') return;
-        qsa('.modal-backdrop.is-open').forEach(closeModal);
-        closeMobileSidebar();
+        const menu = qs('.menu-select.is-open');
+        if (menu) {
+            event.preventDefault();
+            closeMenus();
+            qs('.menu-select-trigger', menu)?.focus();
+        } else if (modal) closeModal(modal);
+        else closeMobileSidebar();
     });
 
     const recoveryForm = qs('#recoveryModalForm');
@@ -214,6 +281,13 @@
     };
 
     document.addEventListener('click', (event) => {
+        const incidentLink = event.target.closest('a[data-incident-link]');
+        if (incidentLink) {
+            if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || incidentLink.hasAttribute('download') || (incidentLink.target && incidentLink.target !== '_self')) return;
+            event.preventDefault();
+            openRecord(incidentLink.href);
+            return;
+        }
         const row = event.target.closest('tr[data-href]');
         if (!row || event.target.closest('a, button')) return;
         const href = row.dataset.href || '';
@@ -346,43 +420,135 @@
         chart.addEventListener('mouseleave', hide);
     });
 
+    qsa('.table-scroll').forEach((scroll) => {
+        const hint = scroll.previousElementSibling;
+        if (!hint?.classList.contains('table-scroll-hint')) return;
+        const syncHint = () => { hint.hidden = scroll.scrollWidth <= scroll.clientWidth + 1; };
+        syncHint();
+        if ('ResizeObserver' in window) {
+            const observer = new ResizeObserver(syncHint);
+            observer.observe(scroll);
+            const table = qs('table', scroll);
+            if (table) observer.observe(table);
+        } else window.addEventListener('resize', syncHint);
+    });
+
     const closeMenus = (except) => {
         qsa('.menu-select.is-open').forEach((menu) => {
             if (menu === except) return;
+            const trigger = qs('.menu-select-trigger', menu);
+            if (menu.contains(document.activeElement)) trigger?.focus();
             menu.classList.remove('is-open');
-            qs('.menu-select-trigger', menu)?.setAttribute('aria-expanded', 'false');
+            trigger?.setAttribute('aria-expanded', 'false');
+            const panel = qs('.menu-select-panel', menu);
+            if (panel) {
+                panel.inert = true;
+                panel.setAttribute('aria-hidden', 'true');
+            }
         });
     };
 
-    qsa('.filter-row select').forEach((select) => {
+    qsa('.filter-row select, select[data-menu-select]').forEach((select, menuIndex) => {
         const menu = document.createElement('div');
         menu.className = 'menu-select';
         select.parentNode.insertBefore(menu, select);
         menu.append(select);
         select.classList.add('menu-select-native');
+        select.hidden = true;
+        select.setAttribute('aria-hidden', 'true');
         select.tabIndex = -1;
 
+        const menuId = select.id || `menu-select-${menuIndex}`;
         const trigger = document.createElement('button');
         trigger.type = 'button';
+        trigger.id = `${menuId}-trigger`;
         trigger.className = 'menu-select-trigger';
         trigger.setAttribute('aria-haspopup', 'listbox');
         trigger.setAttribute('aria-expanded', 'false');
-        if (select.getAttribute('aria-label')) trigger.setAttribute('aria-label', select.getAttribute('aria-label'));
+        trigger.setAttribute('aria-controls', `${menuId}-options`);
+        trigger.disabled = select.disabled;
         const label = document.createElement('span');
+        label.id = `${menuId}-value`;
         const caret = document.createElement('i');
         caret.className = 'menu-select-caret';
         caret.setAttribute('aria-hidden', 'true');
         trigger.append(label, caret);
 
         const panel = document.createElement('div');
+        panel.id = `${menuId}-options`;
         panel.className = 'menu-select-panel';
         panel.setAttribute('role', 'listbox');
+        panel.setAttribute('aria-hidden', 'true');
+        panel.inert = true;
+        const fieldLabels = [...(select.labels || [])];
+        if (fieldLabels.length) {
+            fieldLabels.forEach((fieldLabel, labelIndex) => {
+                if (!fieldLabel.id) fieldLabel.id = `${menuId}-label-${labelIndex}`;
+                fieldLabel.htmlFor = trigger.id;
+            });
+            const labelledBy = fieldLabels.map((fieldLabel) => fieldLabel.id).join(' ');
+            trigger.setAttribute('aria-labelledby', `${labelledBy} ${label.id}`);
+            panel.setAttribute('aria-labelledby', labelledBy);
+        } else {
+            panel.setAttribute('aria-label', select.getAttribute('aria-label') || select.name || 'Options');
+        }
+        const items = [];
+        let activeIndex = select.selectedIndex;
+        const focusOption = (index) => {
+            if (!items.length) return;
+            activeIndex = index;
+            items.forEach((item, itemIndex) => item.classList.toggle('is-focused', itemIndex === index));
+            items[index]?.focus();
+        };
+        const nextOption = (start, direction) => {
+            for (let offset = 1; offset <= items.length; offset += 1) {
+                const index = (start + (offset * direction) + items.length) % items.length;
+                if (!items[index].disabled) return index;
+            }
+            return -1;
+        };
+        const positionPanel = () => {
+            // A fixed panel escapes the modal body's scrolling clip. Keep its
+            // edges within the viewport, including short landscape screens.
+            if (!select.closest('.modal-card') || !menu.classList.contains('is-open')) return;
+            const bounds = trigger.getBoundingClientRect();
+            const gap = 6;
+            const margin = 12;
+            const viewportHeight = window.innerHeight;
+            const viewportWidth = document.documentElement.clientWidth;
+            const width = Math.min(bounds.width, Math.max(0, viewportWidth - (margin * 2)));
+            panel.style.position = 'fixed';
+            panel.style.minWidth = `${width}px`;
+            panel.style.width = `${width}px`;
+            panel.style.left = `${Math.min(Math.max(margin, bounds.left), viewportWidth - width - margin)}px`;
+            panel.style.overflowY = 'auto';
+            const desiredHeight = Math.min(panel.scrollHeight + panel.offsetHeight - panel.clientHeight, 300);
+            const below = viewportHeight - bounds.bottom - gap - margin;
+            const above = bounds.top - gap - margin;
+            const aboveTrigger = below < desiredHeight && above > below;
+            const availableHeight = Math.max(0, aboveTrigger ? above : below);
+            const height = Math.min(desiredHeight, availableHeight);
+            panel.style.maxHeight = `${height}px`;
+            panel.style.top = `${aboveTrigger ? bounds.top - gap - height : bounds.bottom + gap}px`;
+        };
+        const openMenu = (index = select.selectedIndex) => {
+            closeMenus(menu);
+            menu.classList.add('is-open');
+            trigger.setAttribute('aria-expanded', 'true');
+            panel.inert = false;
+            panel.setAttribute('aria-hidden', 'false');
+            positionPanel();
+            // Resolve the opening styles before moving keyboard focus.
+            panel.getBoundingClientRect();
+            focusOption(items[index] && !items[index].disabled ? index : nextOption(-1, 1));
+        };
 
         const sync = () => {
             const current = select.selectedOptions[0];
             label.textContent = current ? current.textContent : '';
-            qsa('.menu-select-option', panel).forEach((option) => {
-                const on = option.dataset.value === select.value;
+            if (!fieldLabels.length) trigger.setAttribute('aria-label', `${select.getAttribute('aria-label') || select.name || 'Choose an option'}: ${label.textContent}`);
+            items.forEach((option, index) => {
+                const on = index === select.selectedIndex;
                 option.classList.toggle('is-selected', on);
                 option.setAttribute('aria-selected', on ? 'true' : 'false');
             });
@@ -392,27 +558,59 @@
             const item = document.createElement('button');
             item.type = 'button';
             item.className = 'menu-select-option';
+            item.id = `${menuId}-option-${index}`;
             item.setAttribute('role', 'option');
+            item.tabIndex = -1;
+            item.disabled = option.disabled;
             item.dataset.value = option.value;
             item.style.animationDelay = `${index * 32}ms`;
             item.textContent = option.textContent;
+            item.addEventListener('focus', () => {
+                activeIndex = index;
+                items.forEach((other, itemIndex) => other.classList.toggle('is-focused', itemIndex === index));
+            });
             item.addEventListener('click', () => {
-                select.value = option.value;
+                select.selectedIndex = index;
                 select.dispatchEvent(new Event('change', { bubbles: true }));
                 sync();
                 closeMenus();
+                trigger.focus();
             });
+            items.push(item);
             panel.append(item);
         });
 
         trigger.addEventListener('click', () => {
             const open = menu.classList.contains('is-open');
             closeMenus();
-            if (!open) {
-                menu.classList.add('is-open');
-                trigger.setAttribute('aria-expanded', 'true');
+            if (!open) openMenu();
+        });
+        trigger.addEventListener('keydown', (event) => {
+            if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+            event.preventDefault();
+            const index = event.key === 'Home' ? nextOption(-1, 1) : event.key === 'End' ? nextOption(0, -1) : select.selectedIndex;
+            openMenu(index);
+        });
+        panel.addEventListener('keydown', (event) => {
+            if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+                event.preventDefault();
+                const index = event.key === 'Home' ? nextOption(-1, 1) : event.key === 'End' ? nextOption(0, -1) : nextOption(activeIndex, event.key === 'ArrowDown' ? 1 : -1);
+                focusOption(index);
+            } else if (event.key === 'Escape' || event.key === 'Tab') {
+                if (event.key === 'Escape') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                closeMenus();
+                trigger.focus();
             }
         });
+        select.addEventListener('change', sync);
+        select.form?.addEventListener('reset', () => setTimeout(sync, 0));
+        if (select.closest('.modal-card')) {
+            window.addEventListener('resize', positionPanel);
+            document.addEventListener('scroll', positionPanel, true);
+        }
 
         menu.append(trigger, panel);
         sync();
@@ -421,8 +619,30 @@
     document.addEventListener('click', (event) => {
         if (!event.target.closest('.menu-select')) closeMenus();
     });
-    document.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') closeMenus();
+    document.addEventListener('focusin', (event) => {
+        if (!event.target.closest('.menu-select')) closeMenus();
+    });
+
+    qsa('[data-number-stepper]').forEach((stepper) => {
+        const input = qs('input[type="number"]', stepper);
+        if (!input) return;
+        const buttons = qsa('[data-step-number]', stepper);
+        const sync = () => {
+            const value = input.valueAsNumber;
+            buttons.forEach((button) => {
+                const decrease = Number(button.dataset.stepNumber) < 0;
+                button.disabled = input.disabled || (Number.isFinite(value) && (decrease ? input.min !== '' && value <= Number(input.min) : input.max !== '' && value >= Number(input.max)));
+            });
+        };
+        buttons.forEach((button) => button.addEventListener('click', () => {
+            input.stepUp(Number(button.dataset.stepNumber));
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }));
+        input.addEventListener('input', sync);
+        input.addEventListener('change', sync);
+        input.form?.addEventListener('reset', () => setTimeout(sync, 0));
+        sync();
     });
 
     document.addEventListener('click', (event) => {

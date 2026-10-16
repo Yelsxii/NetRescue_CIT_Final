@@ -18,11 +18,14 @@
 </head>
 <body data-latest-check-id="{{ \App\Models\HealthCheck::where('device_id', \App\Models\Device::localHost()->id)->latest('checked_at')->orderByDesc('id')->value('id') ?? '' }}">
 <div class="app-shell" id="appShell">
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" aria-label="Navigation menu">
         <div class="side-top">
-            <button type="button" class="brand-toggle" id="sidebarCollapseButton" aria-label="Collapse menu" title="Collapse menu">
+            <button type="button" class="brand-toggle" id="sidebarCollapseButton" aria-label="Collapse menu" aria-controls="sidebar" aria-expanded="true" title="Collapse menu">
                 <img class="brand-logo" src="{{ asset('images/netrescue-logo.png') }}" alt="NetRescue">
                 <img class="brand-mark" src="{{ asset('images/netrescue-mark.png') }}" alt="">
+            </button>
+            <button type="button" class="icon-button sidebar-close" id="sidebarCloseButton" aria-label="Close menu">
+                <x-icon name="close" size="18" />
             </button>
         </div>
 
@@ -49,13 +52,13 @@
         <div class="side-spacer"></div>
     </aside>
 
-    <button type="button" class="sidebar-scrim" id="sidebarScrim" aria-label="Close menu"></button>
+    <button type="button" class="sidebar-scrim" id="sidebarScrim" aria-label="Close menu" tabindex="-1"></button>
 
     <main class="main-panel">
         <header class="topbar">
             <div class="topbar-left">
-                <button type="button" class="menu-toggle mobile-menu" id="mobileMenuButton" aria-label="Open menu">
-                    <span class="menu-lines"><i></i><i></i><i></i></span>
+                <button type="button" class="menu-toggle mobile-menu" id="mobileMenuButton" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">
+                    <span class="menu-lines" aria-hidden="true"><i></i><i></i><i></i></span>
                 </button>
             </div>
             <div class="topbar-actions">
@@ -80,13 +83,13 @@
 
 @php($settingsModal = \App\Models\MonitorSetting::current())
 <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" tabindex="-1">
         <div class="modal-head">
             <div>
                 <span class="eyebrow">Settings</span>
                 <h2 id="settingsModalTitle">Monitoring</h2>
             </div>
-            <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+            <button class="icon-button" type="button" data-close-modal aria-label="Close settings"><x-icon name="close" size="18" /></button>
         </div>
         <form action="{{ route('settings.update') }}" method="POST" class="modal-body js-busy-form" data-busy-text="Saving monitoring settings…">
             @csrf
@@ -106,7 +109,7 @@
             <div class="form-grid">
                 <div class="field-group">
                     <label for="interval_minutes">Check every</label>
-                    <select id="interval_minutes" name="interval_minutes">
+                    <select id="interval_minutes" name="interval_minutes" data-menu-select>
                         @foreach([1,5,10,15,30,60] as $minutes)
                             <option value="{{ $minutes }}" @selected((int) old('interval_minutes', $settingsModal->interval_minutes) === $minutes)>{{ $minutes }} minute{{ $minutes > 1 ? 's' : '' }}</option>
                         @endforeach
@@ -114,9 +117,13 @@
                 </div>
                 <div class="field-group">
                     <label for="latency_warning_ms">Slow-response warning</label>
-                    <div class="input-suffix">
-                        <input id="latency_warning_ms" type="number" min="10" max="1000" name="latency_warning_ms" value="{{ old('latency_warning_ms', $settingsModal->latency_warning_ms) }}" required>
-                        <span>ms</span>
+                    <div class="number-stepper" data-number-stepper>
+                        <button type="button" class="number-stepper-button" data-step-number="-1" aria-label="Decrease slow-response warning by 1 millisecond" aria-controls="latency_warning_ms"><x-icon name="minus" size="16" /></button>
+                        <div class="number-stepper-value">
+                            <input id="latency_warning_ms" type="number" min="10" max="1000" step="1" name="latency_warning_ms" value="{{ old('latency_warning_ms', $settingsModal->latency_warning_ms) }}" aria-describedby="latencyWarningUnit" required>
+                            <span class="number-stepper-unit" id="latencyWarningUnit">ms</span>
+                        </div>
+                        <button type="button" class="number-stepper-button" data-step-number="1" aria-label="Increase slow-response warning by 1 millisecond" aria-controls="latency_warning_ms"><x-icon name="plus" size="16" /></button>
                     </div>
                 </div>
             </div>
@@ -142,13 +149,13 @@
 </div>
 
 <div class="modal-backdrop" id="recoveryModal" aria-hidden="true">
-    <div class="modal-card modal-sm" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle">
+    <div class="modal-card modal-sm" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle" tabindex="-1">
         <div class="modal-head">
             <div>
                 <span class="eyebrow">Approved repair</span>
                 <h2 id="recoveryModalTitle">Run the safe repair?</h2>
             </div>
-            <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+            <button class="icon-button" type="button" data-close-modal aria-label="Close repair dialog"><x-icon name="close" size="18" /></button>
         </div>
         <div class="modal-body">
             <p id="recoveryModalText">The approved repair runs on this computer, then its result is verified automatically.</p>
@@ -164,8 +171,8 @@
 </div>
 
 <div class="modal-backdrop" id="recordModal" aria-hidden="true">
-    <div class="modal-card record-modal" role="dialog" aria-modal="true" aria-labelledby="recordModalTitle">
-        <button class="icon-button record-close" type="button" data-close-modal aria-label="Close">×</button>
+    <div class="modal-card record-modal" role="dialog" aria-modal="true" aria-labelledby="recordModalTitle" aria-label="Incident details" tabindex="-1">
+        <button class="icon-button record-close" type="button" data-close-modal aria-label="Close incident details"><x-icon name="close" size="18" /></button>
         <div id="recordModalBody"></div>
     </div>
 </div>

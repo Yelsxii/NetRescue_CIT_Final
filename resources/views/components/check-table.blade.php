@@ -1,14 +1,15 @@
 @props(['checks', 'warning' => 100])
-<div class="table-scroll">
+<p class="table-scroll-hint"><x-icon name="chevron" size="14" /> Scroll to see all columns</p>
+<div class="table-scroll" role="region" aria-label="Network check history" tabindex="0">
     <table class="data-table check-table">
         <colgroup><col style="width:11%"><col style="width:21%"><col style="width:21%"><col style="width:22%"><col style="width:25%"></colgroup>
         <thead>
             <tr>
-                <th>Time</th>
-                <th>Gateway</th>
-                <th>Internet</th>
-                <th>Name lookup</th>
-                <th class="result-cell">Result</th>
+                <th scope="col">Time</th>
+                <th scope="col">Gateway</th>
+                <th scope="col">Internet</th>
+                <th scope="col">Name lookup</th>
+                <th scope="col" class="result-cell">Result</th>
             </tr>
         </thead>
         <tbody>

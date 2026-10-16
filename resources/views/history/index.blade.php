@@ -24,23 +24,24 @@
     </header>
 
     <section class="table-panel log-panel">
-        <div class="table-scroll">
+        <p class="table-scroll-hint"><x-icon name="chevron" size="14" /> Scroll to see all columns</p>
+        <div class="table-scroll" role="region" aria-label="Incident history" tabindex="0">
             <table class="data-table incident-table">
                 <colgroup><col style="width:23%"><col style="width:17%"><col style="width:12%"><col style="width:38%"><col style="width:10%"></colgroup>
                 <thead>
                     <tr>
-                        <th>Incident</th>
-                        <th>Started</th>
-                        <th>Duration</th>
-                        <th>Outcome and repair</th>
-                        <th>Status</th>
+                        <th scope="col">Incident</th>
+                        <th scope="col">Started</th>
+                        <th scope="col">Duration</th>
+                        <th scope="col">Outcome and repair</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse($incidents as $incident)
                         @php($story = $incident->story())
                         <tr data-href="{{ route('incidents.show', $incident) }}">
-                            <td>{{ $incident->plainProblem() }}</td>
+                            <td><a class="incident-link" data-incident-link href="{{ route('incidents.show', $incident) }}">{{ $incident->plainProblem() }}</a></td>
                             <td>{{ $incident->first_detected_at->format('M j, g:i:s A') }}</td>
                             <td>{{ $incident->durationLabel() }}</td>
                             <td class="incident-resolution"><p data-story-resolution>{{ $story['resolution'] }}</p><p class="quiet" data-story-repair>{{ $story['repair'] }}</p></td>

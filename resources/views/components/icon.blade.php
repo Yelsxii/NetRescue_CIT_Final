@@ -25,6 +25,12 @@
         @case('plus')
             <path d="M12 5v14M5 12h14"/>
             @break
+        @case('minus')
+            <path d="M5 12h14"/>
+            @break
+        @case('close')
+            <path d="m6 6 12 12M18 6 6 18"/>
+            @break
         @case('download')
             <path d="M12 3v12m0 0 5-5m-5 5-5-5"/><path d="M5 21h14"/>
             @break
