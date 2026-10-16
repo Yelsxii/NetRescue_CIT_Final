@@ -29,7 +29,7 @@ class HealthCheckController extends Controller
         $result = $healthService->run('manual', true);
         $check = $result['check'];
 
-        $unread = $check->diagnosis_code === 'configuration_unreadable';
+        $unread = ! $check->readingFinished();
         $type = $check->diagnosis_code === 'healthy' ? 'success' : ($unread || $check->severity === 'low' ? 'warning' : 'danger');
 
         return back()->with('toast', [

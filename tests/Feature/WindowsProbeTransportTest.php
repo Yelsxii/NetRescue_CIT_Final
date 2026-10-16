@@ -10,6 +10,57 @@ use Tests\TestCase;
 
 class WindowsProbeTransportTest extends TestCase
 {
+    public function test_incomplete_json_is_unreadable_instead_of_a_fabricated_missing_adapter(): void
+    {
+        foreach (['{}', '[]', '{"adapterAvailable":true}', '{"adapterAvailable":false,"adapterState":"garbage"}'] as $json) {
+            $configuration = $this->probe(['successful' => true, 'output' => $json, 'error' => '', 'exit_code' => 0])->collectConfiguration();
+            $this->assertNotEmpty($configuration['error'], $json);
+            $this->assertNull($configuration['adapter_state']);
+        }
+    }
+
+    public function test_missing_or_contradictory_probe_results_are_unavailable_not_network_failures(): void
+    {
+        foreach (['{}', 'not-json', '{"operational":true,"addresses":[]}'] as $json) {
+            $probe = $this->probe(['successful' => true, 'output' => $json, 'error' => '', 'exit_code' => 0]);
+            $gateway = $probe->probeGateway('192.168.1.1');
+            $dns = $probe->probeDns('example.com');
+            $this->assertFalse($gateway['measured']);
+            $this->assertFalse($dns['measured']);
+            $this->assertFalse($dns['operational']);
+            $this->assertNotEmpty($gateway['error']);
+            $this->assertNotEmpty($dns['error']);
+        }
+    }
+
+    public function test_dns_uses_the_larger_bounded_budget_for_a_completed_resolver_failure(): void
+    {
+        $probe = $this->probe(['successful' => true,
+            'output' => '{"operational":false,"addresses":[],"latencyMs":9089}',
+            'error' => '', 'exit_code' => 0]);
+        $dns = $probe->probeDns('example.com');
+
+        $this->assertSame(20.0, $probe->commands[0]['timeout']);
+        $this->assertTrue($dns['measured']);
+        $this->assertFalse($dns['operational']);
+        $this->assertStringContainsString('no A records', $dns['error']);
+    }
+
+    public function test_a_dns_process_timeout_stays_unmeasured_even_with_partial_failure_json(): void
+    {
+        $probe = $this->probe(['successful' => false,
+            'output' => '{"operational":false,"addresses":[],"latencyMs":20000}',
+            'error' => 'The process exceeded the timeout of 20 seconds.',
+            'exit_code' => null, 'timed_out' => true]);
+        $dns = $probe->probeDns('example.com');
+
+        $this->assertSame(20.0, $probe->commands[0]['timeout']);
+        $this->assertFalse($dns['measured']);
+        $this->assertFalse($dns['operational']);
+        $this->assertSame([], $dns['addresses']);
+        $this->assertSame('The process exceeded the timeout of 20 seconds.', $dns['error']);
+    }
+
     private function probe(array $reply): NetworkProbeService
     {
         return new class($reply) extends NetworkProbeService {

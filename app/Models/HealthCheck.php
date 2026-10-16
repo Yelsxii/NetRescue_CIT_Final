@@ -45,13 +45,13 @@ class HealthCheck extends Model
 
     public function readingFinished(): bool
     {
-        return $this->diagnosis_code !== 'configuration_unreadable';
+        return ! in_array($this->diagnosis_code, ['configuration_unreadable', 'probe_unavailable'], true);
     }
     public function probeWasRun(string $probe): bool
     {
         $states = $this->probe_meta['probe_states'] ?? null;
         if (is_array($states) && array_key_exists($probe, $states)) {
-            return $states[$probe] !== 'skipped';
+            return in_array($states[$probe], ['passed', 'failed'], true);
         }
         // Infer old readings from the original probe pipeline, not from false alone.
         if (! $this->readingFinished() || ! $this->platform_supported) return false;

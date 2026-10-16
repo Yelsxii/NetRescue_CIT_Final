@@ -61,7 +61,7 @@ class NetworkRequestTimeout
         return (float) config('netrescue.timeouts.powershell_seconds', 20)
             + (float) config('netrescue.timeouts.ping_seconds', 5)
             + count($targets) * (float) config('netrescue.timeouts.socket_seconds', 2.5)
-            + (float) config('netrescue.timeouts.dns_seconds', 6);
+            + (float) config('netrescue.timeouts.dns_seconds', 20);
     }
 
     private function apply(int $seconds): void

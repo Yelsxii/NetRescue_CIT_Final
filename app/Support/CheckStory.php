@@ -53,6 +53,8 @@ class CheckStory
             'dns_failure' => 'Name lookup failure',
             'wan_unreachable', 'internet_unreachable' => 'Internet path down',
             'gateway_unreachable' => 'Gateway down',
+            'gateway_ping_unanswered' => 'Gateway ping unanswered',
+            'probe_unavailable' => 'Connectivity test unavailable',
             'dhcp_issue' => 'No usable address',
             'adapter_disabled' => 'Adapter turned off',
             'adapter_disconnected' => 'No cable or Wi-Fi link',
@@ -125,7 +127,14 @@ class CheckStory
 
     public static function probeMark(?HealthCheck $check, string $probe, int $warningMs): array
     {
-        if (! $check || ! $check->readingFinished()) {
+        if (! $check || $check->diagnosis_code === 'configuration_unreadable') {
+            return ['code' => 'none', 'label' => 'Not measured', 'detail' => 'Reading unavailable'];
+        }
+        $state = data_get($check->probe_meta, 'probe_states.'.$probe);
+        if ($state === 'unavailable') {
+            return ['code' => 'none', 'label' => 'Not measured', 'detail' => 'Windows test result unavailable'];
+        }
+        if (! $check->readingFinished() && ! in_array($state, ['passed', 'failed', 'skipped'], true)) {
             return ['code' => 'none', 'label' => 'Not measured', 'detail' => 'Reading unavailable'];
         }
         if (! $check->probeWasRun($probe)) {

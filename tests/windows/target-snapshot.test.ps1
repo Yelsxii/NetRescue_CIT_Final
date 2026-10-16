@@ -13,6 +13,10 @@ $definition = $ast.Find({ param($node)
 if (-not $definition) { throw 'Production Select-TargetSnapshot function is missing.' }
 # Load only that production function. Do not execute the reader's Windows queries.
 . ([scriptblock]::Create($definition.Extent.Text))
+$soleDefinition = $ast.Find({ param($node)
+    $node -is [System.Management.Automation.Language.FunctionDefinitionAst] -and $node.Name -eq 'Select-SoleSnapshot'
+}, $true)
+. ([scriptblock]::Create($soleDefinition.Extent.Text))
 
 function New-TestInterface([string]$Name, [string]$Status = 'Up', [string[]]$Gateways = @('192.168.1.1'), [bool]$IPv4 = $true) {
     $info = [pscustomobject]@{
@@ -74,6 +78,17 @@ $duplicates = New-TestInterface 'Wi-Fi' 'Up' @('192.168.1.1', '192.168.1.1', '20
 $choice = Select-TargetSnapshot ([pscustomobject]@{ Interfaces = @($duplicates) }) 'Wi-Fi'
 Assert-Test ($null -ne $choice -and $choice.Gateway -eq '192.168.1.1') 'Duplicate or IPv6 gateway entries do not create a false IPv4 ambiguity.'
 
+$choice = Select-SoleSnapshot ([pscustomobject]@{ Interfaces = @($wifi, $down) })
+Assert-Test ($null -ne $choice -and $choice.Interface.Name -eq 'Wi-Fi') 'One Up interface uses the fast snapshot without detailed queries.'
+$choice = Select-SoleSnapshot ([pscustomobject]@{ Interfaces = @($wifi, $ethernet) })
+Assert-Test ($null -eq $choice) 'Two Up interfaces retain route-metric selection.'
+$choice = Select-SoleSnapshot ([pscustomobject]@{ Interfaces = @($multiple) })
+Assert-Test ($null -eq $choice) 'One interface with multiple gateways retains route-metric selection.'
+$choice = Select-SoleSnapshot ([pscustomobject]@{ Interfaces = @($down) })
+Assert-Test ($null -eq $choice) 'No Up interface retains administrative-state fallback.'
+$choice = Select-SoleSnapshot ([pscustomobject]@{ Interfaces = @($noGateway) })
+Assert-Test ($null -eq $choice) 'One Up interface without a gateway retains physical-adapter fallback.'
+
 # Execute the actual production main block too. Replace OS access with fixtures;
 # detailed networking queries must not be called on these unambiguous Up paths.
 $writeDefinition = $ast.Find({ param($node)
@@ -103,5 +118,47 @@ $script:testSnapshot = [pscustomobject]@{ Interfaces = @($noGateway); ByIndex = 
 $reading = (& $main | Out-String) | ConvertFrom-Json
 Assert-Test ($reading.reader -eq 'target_snapshot' -and -not $reading.error -and
     $reading.adapterState -eq 'up' -and $null -eq $reading.localIp -and $null -eq $reading.gatewayIp) 'Complete production reading preserves missing IP and gateway during acquisition.'
+
+$InterfaceName = ''
+$script:testSnapshot = [pscustomobject]@{ Interfaces = @($wifi); ByIndex = @{} }
+$reading = (& $main | Out-String) | ConvertFrom-Json
+Assert-Test ($reading.reader -eq 'single_interface_snapshot' -and -not $reading.error -and
+    $reading.interfaceName -eq 'Wi-Fi' -and $reading.gatewayIp -eq '192.168.1.1') 'An untargeted single-interface reading skips expensive route and adapter module loading.'
+
+# The administrative-state fallback exits the reader after writing its result.
+# Execute the production block in a child process so that exit remains unchanged.
+# All network queries are replaced by fixtures before the block is invoked.
+$productionDefinitions = @($ast.EndBlock.Statements | Where-Object {
+    $_ -is [System.Management.Automation.Language.FunctionDefinitionAst]
+} | ForEach-Object { $_.Extent.Text }) -join "`n"
+$fixtureFactory = 'function New-TestInterface {' + (Get-Command New-TestInterface).Definition + "`n}"
+$virtualFixture = @'
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+$reader = 'route_and_adapter'
+$errorCode = 'configuration_read_failed'
+$windowsAdapterStatus = $null
+$InterfaceName = ''
+$virtual = New-TestInterface 'vEthernet (WSL)' 'Up' @()
+$virtual.NetworkInterfaceType = [System.Net.NetworkInformation.NetworkInterfaceType]::Ethernet
+$virtual.TestProperties | Add-Member -Force -MemberType ScriptMethod -Name GetIPv4Properties -Value {
+    return [pscustomobject]@{ Index = 9; IsDhcpEnabled = $false }
+}
+function Get-InterfaceSnapshot { return [pscustomobject]@{ Interfaces = @($virtual); ByIndex = @{9 = $virtual} } }
+function Get-NetRoute { return @() }
+function Get-NetAdapter {
+    param([switch]$Physical)
+    if (-not $Physical) { throw 'The fixture expects physical-adapter selection.' }
+    return [pscustomobject]@{ Name = 'Wi-Fi'; Status = 'Disabled'; InterfaceIndex = 5 }
+}
+'@
+$isolatedCode = $productionDefinitions + "`n" + $fixtureFactory + "`n" + $virtualFixture + "`n" + $mainDefinition.Extent.Text
+$bootstrap = '& ([scriptblock]::Create([Console]::In.ReadToEnd()))'
+$encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($bootstrap))
+$powershellPath = (Get-Process -Id $PID).Path
+$reading = ($isolatedCode | & $powershellPath -NoLogo -NoProfile -NonInteractive -EncodedCommand $encoded | Out-String) | ConvertFrom-Json
+Assert-Test ($LASTEXITCODE -eq 0 -and -not $reading.error -and
+    $reading.reader -eq 'route_and_adapter' -and -not $reading.adapterAvailable -and
+    $reading.adapterState -eq 'disabled' -and $reading.interfaceName -eq 'Wi-Fi') 'A sole Up host-only virtual interface cannot hide disabled physical Wi-Fi.'
 
 Write-Output ('Completed ' + $passed + ' read-only snapshot tests. These do not test Windows adapter repair.')

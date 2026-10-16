@@ -28,13 +28,19 @@ class RecoveryController extends Controller
         $skipped = $recovery->execution_status === 'skipped';
         $already = $recovery->verification_status === 'already_recovered';
         $observed = $recovery->verification_status === 'observed_recovery';
+        $partial = $recovery->success && $recovery->afterHealthCheck?->diagnosis_code !== 'healthy';
         $destination = $request->input('return_to') === 'dashboard'
             ? route('dashboard') : route('incidents.show', $incident);
         return redirect($destination)->with('toast', [
-            'type' => $recovery->success || $already ? 'success' : 'warning',
-            'title' => $already ? 'Already recovered - no command run'
-                : ($skipped ? 'Repair was not run' : ($recovery->success ? 'Recovery verified'
-                    : ($observed ? 'Recovery observed; repair not verified' : 'Repair outcome needs review'))),
+            'type' => ($recovery->success && ! $partial) || $already ? 'success' : 'warning',
+            'title' => match (true) {
+                $already => 'Already recovered - no command run',
+                $skipped => 'Repair was not run',
+                $partial => 'Target repaired; another condition remains',
+                (bool) $recovery->success => 'Recovery verified',
+                $observed => 'Recovery observed; repair not verified',
+                default => 'Repair outcome needs review',
+            },
             'message' => $recovery->outcomeSummary(),
         ]);
     }

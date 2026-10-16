@@ -106,6 +106,7 @@ class DiagnosticEngineTest extends TestCase
         $metrics = $this->baseMetrics();
         $metrics['address_source'] = 'static';
         $metrics['gateway_reachable'] = false;
+        $metrics['internet_reachable'] = false;
 
         $diagnosis = app(DiagnosticEngine::class)->diagnose($metrics, 100);
 
@@ -118,6 +119,7 @@ class DiagnosticEngineTest extends TestCase
         $metrics = $this->baseMetrics();
         $metrics['address_source'] = 'dhcp';
         $metrics['gateway_reachable'] = false;
+        $metrics['internet_reachable'] = false;
 
         $diagnosis = app(DiagnosticEngine::class)->diagnose($metrics, 100);
 

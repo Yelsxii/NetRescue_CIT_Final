@@ -49,6 +49,7 @@ class Incident extends Model
             'device_unreachable' => 'No response',
             'dns_failure' => 'DNS Resolution Failure',
             'gateway_unreachable' => 'Gateway not responding',
+            'gateway_ping_unanswered' => 'Gateway ping unanswered; Internet available',
             'adapter_disabled' => 'Adapter turned off',
             'adapter_disconnected' => 'No cable or Wi-Fi link',
             'static_configuration' => 'Manual address is not reaching the router',
@@ -63,8 +64,9 @@ class Incident extends Model
             'slow_network', 'high_latency' => 'The router or this computer answered, but slower than the warning limit.',
             'internet_unreachable', 'wan_unreachable' => 'The local network responded, but the Internet path did not.',
             'device_unreachable' => 'This computer did not answer during the monitoring window.',
-            'dns_failure' => 'The router and the Internet answered, but name lookup failed.',
-            'gateway_unreachable' => 'The router did not answer, so Internet and name lookup were not treated as separate failures.',
+            'dns_failure' => 'External TCP connectivity passed, but name lookup failed.',
+            'gateway_unreachable' => 'Gateway ping did not answer. The exact failed device or policy is not established.',
+            'gateway_ping_unanswered' => 'Gateway ping did not answer, but external TCP connectivity and name lookup passed.',
             default => $this->summary ?: 'A monitoring check recorded a problem.',
         };
     }
