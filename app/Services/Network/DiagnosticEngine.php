@@ -132,19 +132,30 @@ class DiagnosticEngine
             );
         }
 
-        if (!($metrics['gateway_reachable'] ?? false)) {
+        if (in_array('unavailable', $metrics['probe_states'] ?? [], true)) {
+            return new NetworkDiagnosis(
+                code: 'probe_unavailable',
+                title: 'Connectivity Test Did Not Finish',
+                severity: 'low',
+                summary: 'A Windows connectivity test did not return a completed result. This does not establish a gateway or DNS outage.',
+                details: ['Completed measurements are retained. An unavailable test is not shown as a failed network response.'],
+                recommendedAction: 'Review the recorded test error and run Check again. No repair is indicated by an incomplete test.',
+            );
+        }
+
+        if (!($metrics['gateway_reachable'] ?? false) && !($metrics['internet_reachable'] ?? false)) {
             if ($this->usesManualAddress($metrics)) {
                 return $this->manualAddress($metrics);
             }
 
             return new NetworkDiagnosis(
                 code: 'gateway_unreachable',
-                title: 'Local Gateway Unreachable',
+                title: 'Possible Local Gateway / Path Issue',
                 severity: 'high',
-                summary: 'The computer has an IP configuration, but the configured default gateway did not respond to the reachability test.',
+                summary: 'The configured gateway did not answer ping, and external TCP connectivity tests also failed.',
                 details: [
-                    'This points to a local link, access point, router, cable, or gateway availability problem.',
-                    'Internet and DNS failures are not separately reported because the local path failed first.',
+                    'A local link, access point, router, firewall, or gateway problem is possible; these tests do not prove which device failed.',
+                    'The external TCP failure is retained as evidence. Name lookup was not tested because the external path failed.',
                 ],
                 recommendedAction: 'Run repair to renew the address and automatically measure the gateway again.',
                 recoveryActionCode: 'renew_dhcp',
@@ -170,14 +181,25 @@ class DiagnosticEngine
                 code: 'dns_failure',
                 title: 'DNS Resolution Failure',
                 severity: 'moderate',
-                summary: 'Internet connectivity is available, but the configured Windows DNS resolver could not resolve the test domain.',
+                summary: 'External TCP connectivity is available, but the configured Windows DNS resolver could not resolve the test domain.',
                 details: [
-                    'Gateway connectivity passed.',
+                    ($metrics['gateway_reachable'] ?? false) ? 'Gateway ping passed.' : 'Gateway ping did not answer, but the external TCP test passed.',
                     'External TCP connectivity passed.',
                     'The DNS test failed independently, so this is treated as a DNS-specific condition.',
                 ],
                 recommendedAction: 'Clear the local DNS resolver cache and automatically verify resolution again.',
                 recoveryActionCode: 'flush_dns',
+            );
+        }
+
+        if (!($metrics['gateway_reachable'] ?? false)) {
+            return new NetworkDiagnosis(
+                code: 'gateway_ping_unanswered',
+                title: 'Gateway Ping Unanswered; Internet Available',
+                severity: 'low',
+                summary: 'The gateway did not answer ICMP ping, but external TCP connectivity and DNS resolution passed.',
+                details: ['Ping alone does not prove that the router or connection is down.', 'Gateway response time could not be measured.'],
+                recommendedAction: 'No local repair is indicated. Check whether the router or firewall allows ICMP if gateway latency monitoring is needed.',
             );
         }
 

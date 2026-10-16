@@ -86,7 +86,11 @@ class RecoveryAction extends Model
             return $this->action_label.' did not complete successfully. The network result was checked separately.';
         }
         if ($this->success) {
-            return $this->action_label.' completed; the follow-up check verified that the target condition cleared.';
+            $summary = $this->action_label.' completed; the follow-up check verified that the target condition cleared.';
+            if ($this->afterHealthCheck && $this->afterHealthCheck->diagnosis_code !== 'healthy') {
+                $summary .= ' Another condition remains: '.($this->afterHealthCheck->diagnosis_title ?: $this->afterHealthCheck->diagnosis_code).'. Review its next step.';
+            }
+            return $summary;
         }
         if ($this->execution_status === 'completed') {
             return match ($this->verification_status) {

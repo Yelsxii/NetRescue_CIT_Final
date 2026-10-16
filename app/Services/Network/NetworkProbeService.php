@@ -66,10 +66,18 @@ class NetworkProbeService
             return $configuration;
         }
 
+        $state = $this->adapterState($decoded['adapterState'] ?? null);
+        if (! is_bool($decoded['adapterAvailable'] ?? null) || $state === null
+            || ($state !== 'missing' && ! is_string($decoded['interfaceName'] ?? null))
+            || ($state !== 'missing' && trim($decoded['interfaceName']) === '')
+            || $decoded['adapterAvailable'] !== ($state === 'up')) {
+            return $this->emptyConfiguration('Windows returned an incomplete or inconsistent network configuration response.', true, 'configuration_invalid_response');
+        }
+
         return [
             'supported' => true,
             'adapter_available' => (bool) ($decoded['adapterAvailable'] ?? false),
-            'adapter_state' => $this->adapterState($decoded['adapterState'] ?? null),
+            'adapter_state' => $state,
             'interface_name' => $decoded['interfaceName'] ?? null,
             'local_ip' => $decoded['localIp'] ?? null,
             'gateway_ip' => $decoded['gatewayIp'] ?? null,
@@ -121,11 +129,13 @@ POWERSHELL;
 
         $result = $this->runPowerShell($script, (float) config('netrescue.timeouts.ping_seconds', 5));
         $decoded = $result['successful'] ? json_decode(trim($result['output']), true) : null;
+        $measured = is_array($decoded) && is_bool($decoded['reachable'] ?? null);
 
         return [
-            'reachable' => (bool) ($decoded['reachable'] ?? false),
-            'latency_ms' => isset($decoded['latencyMs']) ? (float) $decoded['latencyMs'] : null,
-            'error' => $result['successful'] ? null : ($result['error'] ?: 'Gateway reachability test failed.'),
+            'measured' => $measured,
+            'reachable' => $measured && $decoded['reachable'],
+            'latency_ms' => $measured && isset($decoded['latencyMs']) ? (float) $decoded['latencyMs'] : null,
+            'error' => $measured ? null : ($result['error'] ?: 'Windows did not return a completed gateway ping result.'),
         ];
     }
 
@@ -176,7 +186,7 @@ POWERSHELL;
         $safeDomain = str_replace("'", '', $domain);
         $script = <<<POWERSHELL
 \$watch = [System.Diagnostics.Stopwatch]::StartNew()
-\$records = @(Resolve-DnsName -Name '{$safeDomain}' -Type A -DnsOnly -ErrorAction SilentlyContinue | Where-Object { \$_.IPAddress })
+\$records = @(Resolve-DnsName -Name '{$safeDomain}' -Type A -DnsOnly -QuickTimeout -ErrorAction SilentlyContinue | Where-Object { \$_.IPAddress })
 \$watch.Stop()
 \$addresses = @(\$records | Select-Object -ExpandProperty IPAddress -Unique)
 [pscustomobject]@{
@@ -191,12 +201,18 @@ POWERSHELL;
         $addresses = $decoded['addresses'] ?? [];
         if (is_string($addresses)) $addresses = [$addresses];
 
-        $operational = (bool) ($decoded['operational'] ?? false);
+        $addresses = array_values(array_unique(array_filter((array) $addresses,
+            fn ($address) => is_string($address) && filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false)));
+        $measured = is_array($decoded) && is_bool($decoded['operational'] ?? null)
+            && $decoded['operational'] === (count($addresses) > 0);
+        $operational = $measured && $decoded['operational'];
         return [
+            'measured' => $measured,
             'operational' => $operational,
             'latency_ms' => $operational ? (float) ($decoded['latencyMs'] ?? 0) : null,
-            'addresses' => array_values(array_unique(array_filter((array) $addresses))),
-            'error' => $result['successful'] ? null : ($result['error'] ?: 'DNS resolution test failed.'),
+            'addresses' => $addresses,
+            'error' => ! $measured ? ($result['error'] ?: 'Windows did not return a completed DNS result.')
+                : ($operational ? null : 'Windows returned no A records for '.$domain.'.'),
         ];
     }
 

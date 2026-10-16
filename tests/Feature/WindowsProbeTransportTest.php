@@ -10,6 +10,29 @@ use Tests\TestCase;
 
 class WindowsProbeTransportTest extends TestCase
 {
+    public function test_incomplete_json_is_unreadable_instead_of_a_fabricated_missing_adapter(): void
+    {
+        foreach (['{}', '[]', '{"adapterAvailable":true}', '{"adapterAvailable":false,"adapterState":"garbage"}'] as $json) {
+            $configuration = $this->probe(['successful' => true, 'output' => $json, 'error' => '', 'exit_code' => 0])->collectConfiguration();
+            $this->assertNotEmpty($configuration['error'], $json);
+            $this->assertNull($configuration['adapter_state']);
+        }
+    }
+
+    public function test_missing_or_contradictory_probe_results_are_unavailable_not_network_failures(): void
+    {
+        foreach (['{}', 'not-json', '{"operational":true,"addresses":[]}'] as $json) {
+            $probe = $this->probe(['successful' => true, 'output' => $json, 'error' => '', 'exit_code' => 0]);
+            $gateway = $probe->probeGateway('192.168.1.1');
+            $dns = $probe->probeDns('example.com');
+            $this->assertFalse($gateway['measured']);
+            $this->assertFalse($dns['measured']);
+            $this->assertFalse($dns['operational']);
+            $this->assertNotEmpty($gateway['error']);
+            $this->assertNotEmpty($dns['error']);
+        }
+    }
+
     private function probe(array $reply): NetworkProbeService
     {
         return new class($reply) extends NetworkProbeService {

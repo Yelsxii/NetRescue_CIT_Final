@@ -53,6 +53,8 @@ class CheckStory
             'dns_failure' => 'Name lookup failure',
             'wan_unreachable', 'internet_unreachable' => 'Internet path down',
             'gateway_unreachable' => 'Gateway down',
+            'gateway_ping_unanswered' => 'Gateway ping unanswered',
+            'probe_unavailable' => 'Connectivity test unavailable',
             'dhcp_issue' => 'No usable address',
             'adapter_disabled' => 'Adapter turned off',
             'adapter_disconnected' => 'No cable or Wi-Fi link',
@@ -127,6 +129,9 @@ class CheckStory
     {
         if (! $check || ! $check->readingFinished()) {
             return ['code' => 'none', 'label' => 'Not measured', 'detail' => 'Reading unavailable'];
+        }
+        if (data_get($check->probe_meta, 'probe_states.'.$probe) === 'unavailable') {
+            return ['code' => 'none', 'label' => 'Not measured', 'detail' => 'Windows test result unavailable'];
         }
         if (! $check->probeWasRun($probe)) {
             return ['code' => 'none', 'label' => 'Not tested', 'detail' => 'Earlier network prerequisite did not pass'];

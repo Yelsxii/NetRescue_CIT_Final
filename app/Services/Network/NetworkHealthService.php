@@ -7,6 +7,7 @@ use App\Models\HealthCheck;
 use App\Models\Incident;
 use App\Models\MonitorSetting;
 use App\Support\NetworkDiagnosis;
+use App\Support\Ipv4Address;
 use Throwable;
 
 class NetworkHealthService
@@ -61,37 +62,38 @@ class NetworkHealthService
                 $phaseStarted = microtime(true);
                 $gateway = $this->probe->probeGateway($metrics['gateway_ip']);
                 $timings['gateway'] = round((microtime(true) - $phaseStarted) * 1000, 2);
-                $metrics['probe_states']['gateway'] = $gateway['reachable'] ? 'passed' : 'failed';
+                $metrics['probe_states']['gateway'] = ($gateway['measured'] ?? true) ? ($gateway['reachable'] ? 'passed' : 'failed') : 'unavailable';
                 $metrics['gateway_reachable'] = $gateway['reachable'];
                 $metrics['gateway_latency_ms'] = $gateway['latency_ms'];
                 if ($gateway['error']) $metrics['probe_errors'][] = $gateway['error'];
 
-                if ($metrics['gateway_reachable']) {
-                    $phaseStarted = microtime(true);
-                    $internet = $this->probe->probeInternet($settings->internet_targets ?: config('netrescue.internet_targets', []));
-                    $timings['internet'] = round((microtime(true) - $phaseStarted) * 1000, 2);
-                    $metrics['probe_states']['internet'] = $internet['reachable'] ? 'passed' : 'failed';
-                    $metrics['internet_reachable'] = $internet['reachable'];
-                    $metrics['internet_latency_ms'] = $internet['latency_ms'];
-                    $metrics['internet_target'] = $internet['target'];
-                    if ($internet['error']) $metrics['probe_errors'][] = $internet['error'];
+                // ICMP can be blocked while TCP and DNS still work. Measure the
+                // external path before diagnosing an outage or offering renewal.
+                $phaseStarted = microtime(true);
+                $internet = $this->probe->probeInternet($settings->internet_targets ?: config('netrescue.internet_targets', []));
+                $timings['internet'] = round((microtime(true) - $phaseStarted) * 1000, 2);
+                $metrics['probe_states']['internet'] = $internet['reachable'] ? 'passed' : 'failed';
+                $metrics['internet_reachable'] = $internet['reachable'];
+                $metrics['internet_latency_ms'] = $internet['latency_ms'];
+                $metrics['internet_target'] = $internet['target'];
+                if ($internet['error']) $metrics['probe_errors'][] = $internet['error'];
 
-                    if ($metrics['internet_reachable']) {
-                        $phaseStarted = microtime(true);
-                        $dns = $this->probe->probeDns($settings->dns_test_domain);
-                        $timings['dns'] = round((microtime(true) - $phaseStarted) * 1000, 2);
-                        $metrics['probe_states']['dns'] = $dns['operational'] ? 'passed' : 'failed';
-                        $metrics['dns_operational'] = $dns['operational'];
-                        $metrics['dns_latency_ms'] = $dns['latency_ms'];
-                        $metrics['dns_addresses'] = $dns['addresses'];
-                        if ($dns['error']) $metrics['probe_errors'][] = $dns['error'];
-                    }
+                if ($metrics['internet_reachable']) {
+                    $phaseStarted = microtime(true);
+                    $dns = $this->probe->probeDns($settings->dns_test_domain);
+                    $timings['dns'] = round((microtime(true) - $phaseStarted) * 1000, 2);
+                    $metrics['probe_states']['dns'] = ($dns['measured'] ?? true) ? ($dns['operational'] ? 'passed' : 'failed') : 'unavailable';
+                    $metrics['dns_operational'] = $dns['operational'];
+                    $metrics['dns_latency_ms'] = $dns['latency_ms'];
+                    $metrics['dns_addresses'] = $dns['addresses'];
+                    if ($dns['error']) $metrics['probe_errors'][] = $dns['error'];
                 }
             }
 
             $metrics['timings_ms'] = $timings + ['total' => round((microtime(true) - $runStarted) * 1000, 2)];
             $diagnosis = $this->diagnosticEngine->diagnose($metrics, $settings->latency_warning_ms);
             $score = $this->scoreFor($metrics, $settings->latency_warning_ms);
+            if ($diagnosis->code === 'gateway_ping_unanswered') $score['status'] = 'degraded';
             $check = $this->persistCheck($device, $metrics, $diagnosis, $score, $source, $settings->dns_test_domain);
             $this->syncDevice($device, $check);
             $incident = $this->recordIncident($manageIncidents, $check, $diagnosis);
@@ -167,7 +169,7 @@ class NetworkHealthService
 
     private function scoreFor(array $metrics, int $latencyWarningMs): array
     {
-        if ($metrics['configuration_unreadable'] ?? false) {
+        if (($metrics['configuration_unreadable'] ?? false) || in_array('unavailable', $metrics['probe_states'] ?? [], true)) {
             return ['score' => 0, 'status' => 'unread', 'response_healthy' => false];
         }
 
@@ -176,7 +178,7 @@ class NetworkHealthService
 
     private function recordIncident(bool $manageIncidents, HealthCheck $check, NetworkDiagnosis $diagnosis): ?Incident
     {
-        if (! $manageIncidents || $diagnosis->code === 'configuration_unreadable') {
+        if (! $manageIncidents || ! $check->readingFinished()) {
             return null;
         }
 
@@ -206,8 +208,8 @@ class NetworkHealthService
 
     private function classifyIp(?string $ip): string
     {
-        if (!$ip || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) return 'missing';
+        if (! $ip || filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) return 'missing';
         if (str_starts_with($ip, '169.254.')) return 'apipa';
-        return 'valid';
+        return Ipv4Address::usable($ip) ? 'valid' : 'missing';
     }
 }

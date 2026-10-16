@@ -4,6 +4,7 @@ namespace App\Services\Network;
 
 use App\Models\HealthCheck;
 use App\Models\Incident;
+use App\Support\Ipv4Address;
 
 class RecoveryPlan
 {
@@ -16,12 +17,11 @@ class RecoveryPlan
         return match ($incidentCode) {
             'dns_failure' => ! $before->dns_operational && $after->dns_operational,
             'dhcp_issue' => str_starts_with((string) $before->local_ip, '169.254.')
-                && $after->local_ip
-                && ! str_starts_with((string) $after->local_ip, '169.254.')
-                && $after->gateway_ip,
+                && Ipv4Address::usable($after->local_ip)
+                && Ipv4Address::usable($after->gateway_ip),
             'gateway_unreachable' => ! $before->gateway_reachable && $after->gateway_reachable,
             'gateway_missing' => filled($after->gateway_ip) && $after->gateway_reachable,
-            'ip_configuration_missing' => filled($after->local_ip) && ! str_starts_with((string) $after->local_ip, '169.254.'),
+            'ip_configuration_missing' => Ipv4Address::usable($after->local_ip),
             'adapter_disabled' => ($after->probe_meta['adapter_state'] ?? null) === 'up',
             default => false,
         };
@@ -40,7 +40,15 @@ class RecoveryPlan
                 return [null, 'Name lookup still failed. The DNS server address is set manually, so renew will not replace it. A person should correct that DNS server or set DNS to automatic.'];
             }
 
+            if ($dnsSource !== 'dhcp' || ($after->probe_meta['address_source'] ?? 'unknown') !== 'dhcp' || blank($after->interface_name)) {
+                return [null, 'Name lookup still failed. DHCP addressing and automatic DNS were not both confirmed, so renewal is not appropriate. A person should review the DNS servers and address settings, then re-test.'];
+            }
+
             return ['renew_dhcp', 'Renew the address so Windows receives DNS servers again.'];
+        }
+
+        if ($incident->code === 'dns_failure' && $actionCode === 'renew_dhcp') {
+            return [null, 'Name lookup still failed after clearing the cache and renewing DHCP. A person should check the DNS server, router DNS settings, VPN, or firewall, then re-test. Repeating renewal has not been shown to help.'];
         }
 
         if ($actionCode === 'renew_dhcp' && in_array($incident->code, ['gateway_unreachable', 'gateway_missing', 'ip_configuration_missing', 'dhcp_issue'], true) && filled($after->interface_name)) {

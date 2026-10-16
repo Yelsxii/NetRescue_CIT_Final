@@ -35,7 +35,14 @@ class LocalConsole
         }
 
         if (function_exists('net_get_interfaces')) {
-            foreach (net_get_interfaces() ?: [] as $interface) {
+            // Enumeration can fail during a network transition or in a restricted
+            // host. Keep the explicit local addresses; do not turn denial into 500.
+            try {
+                $interfaces = @net_get_interfaces() ?: [];
+            } catch (\Throwable) {
+                $interfaces = [];
+            }
+            foreach ($interfaces as $interface) {
                 foreach ($interface['unicast'] ?? [] as $address) {
                     $addresses[] = self::normalize((string) ($address['address'] ?? ''));
                 }

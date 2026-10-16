@@ -69,6 +69,12 @@ Automated tests cover local scope, removed routes, retained evidence,
 diagnosis, safe repairs and automatic verification with mocked Windows calls.
 Actual Windows networking and command timing require laptop testing.
 
+For the full per-fault QA plan, findings and guarded local Windows runner, see
+[FAULT_QA_PLAN.md](docs/FAULT_QA_PLAN.md), [FAULT_QA_RESULTS.md](docs/FAULT_QA_RESULTS.md)
+and [WINDOWS_FAULT_QA.md](docs/WINDOWS_FAULT_QA.md). The runner arms rollback before
+injecting one fault and can exercise the normal Check/Repair routes while saving
+their evidence. No real laptop test is implied by the automated suite.
+
 See docs/LOCAL_ONLY_MONITORING.md for removal scope and data compatibility,
 docs/ARCHITECTURE.md for the implementation, and docs/TEST_CASES.md for tests.
 Earlier fault-specific notes document historical debugging runs; this README

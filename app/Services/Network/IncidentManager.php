@@ -15,6 +15,7 @@ class IncidentManager
         if ((int) $deviceId !== Device::localHost()->id) {
             throw new \InvalidArgumentException('Only measurements from this computer can create incidents.');
         }
+        if (! $check->readingFinished()) return null;
 
         if ($diagnosis->code === 'healthy') {
             $this->resolveActiveExcept(null, $check, $deviceId);

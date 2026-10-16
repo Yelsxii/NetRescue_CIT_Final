@@ -6,6 +6,7 @@ use App\Models\HealthCheck;
 use App\Models\Incident;
 use App\Services\Network\RecoveryPlan;
 use Tests\TestCase;
+use PHPUnit\Framework\Attributes\DataProvider;
 
 class RecoveryPlanTest extends TestCase
 {
@@ -36,7 +37,7 @@ class RecoveryPlanTest extends TestCase
         ]);
         $after = new HealthCheck([
             'interface_name' => 'Wi-Fi',
-            'probe_meta' => ['dns_source' => 'dhcp'],
+            'probe_meta' => ['dns_source' => 'dhcp', 'address_source' => 'dhcp'],
         ]);
 
         [$action] = app(RecoveryPlan::class)->nextStep($incident, 'flush_dns', $after);
@@ -86,5 +87,31 @@ class RecoveryPlanTest extends TestCase
 
         $this->assertTrue($plan->cleared('adapter_disabled', $before, $up));
         $this->assertFalse($plan->cleared('adapter_disabled', $before, $stillOff));
+    }
+
+    public static function unusableAddresses(): iterable
+    {
+        foreach (['0.0.0.0', '0.1.2.3', '127.0.0.1', '169.254.2.3', '224.0.0.1', '255.255.255.255', 'not-an-ip', '::1'] as $ip) {
+            yield $ip => [$ip];
+        }
+    }
+
+    #[DataProvider('unusableAddresses')]
+    public function test_unusable_addresses_cannot_verify_an_ip_repair(string $ip): void
+    {
+        $plan = app(RecoveryPlan::class);
+        $before = new HealthCheck(['local_ip' => '169.254.1.2']);
+        $after = new HealthCheck(['local_ip' => $ip, 'gateway_ip' => '192.168.1.1']);
+        $this->assertFalse($plan->cleared('ip_configuration_missing', $before, $after));
+        $this->assertFalse($plan->cleared('dhcp_issue', $before, $after));
+    }
+
+    public function test_unknown_dns_source_and_manual_ip_do_not_offer_renewal(): void
+    {
+        $incident = new Incident(['code' => 'dns_failure']);
+        foreach ([['dns_source' => 'unknown', 'address_source' => 'dhcp'], ['dns_source' => 'dhcp', 'address_source' => 'static']] as $meta) {
+            [$action] = app(RecoveryPlan::class)->nextStep($incident, 'flush_dns', new HealthCheck(['probe_meta' => $meta]));
+            $this->assertNull($action);
+        }
     }
 }

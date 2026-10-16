@@ -62,6 +62,18 @@ function Select-TargetSnapshot($Snapshot, [string]$Name) {
     }
 }
 
+function Select-SoleSnapshot($Snapshot) {
+    # A single Up IPv4 interface cannot lose route precedence to another Up
+    # interface. Multiple interfaces/gateways still require Windows route metrics.
+    $up = @($Snapshot.Interfaces | Where-Object {
+        $_.OperationalStatus -eq [System.Net.NetworkInformation.OperationalStatus]::Up -and
+        $_.NetworkInterfaceType -ne [System.Net.NetworkInformation.NetworkInterfaceType]::Loopback -and
+        $_.Supports([System.Net.NetworkInformation.NetworkInterfaceComponent]::IPv4)
+    })
+    if ($up.Count -ne 1) { return $null }
+    return Select-TargetSnapshot $Snapshot $up[0].Name
+}
+
 try {
     $selected = $null
     $gateway = $null
@@ -108,39 +120,48 @@ try {
         }
     } else {
 
-        # Keep route-based selection for Ethernet/Wi-Fi/VPN and multiple gateways.
-        # Get all IPv4 routes so an absent default route is a normal empty filter.
-        $routes = @(Get-NetRoute -AddressFamily IPv4 -ErrorAction Stop | Where-Object {
-            $_.DestinationPrefix -eq '0.0.0.0/0' -and $_.NextHop -and $_.NextHop -ne '0.0.0.0'
-        } | Sort-Object @{ Expression = { [long]$_.RouteMetric + [long]$_.InterfaceMetric } }, InterfaceIndex)
         $snapshot = Get-InterfaceSnapshot
-        $routes = @($routes | Where-Object { $snapshot.ByIndex.ContainsKey([int]$_.InterfaceIndex) })
-        if ($routes.Count) {
-            $selected = $snapshot.ByIndex[[int]$routes[0].InterfaceIndex]
-            $gateway = [string]$routes[0].NextHop
+        $sole = Select-SoleSnapshot $snapshot
+        if ($sole) {
+            $selected = $sole.Interface
+            $gateway = $sole.Gateway
+            $reader = 'single_interface_snapshot'
         } else {
-            # Disabled adapters can be absent from the .NET snapshot. Query adapter
-            # administrative state only on this path, never infer Disabled from Down.
-            $physical = @(Get-NetAdapter -Physical -ErrorAction Stop)
+
+            # Keep route-based selection for Ethernet/Wi-Fi/VPN and multiple gateways.
+            # Get all IPv4 routes so an absent default route is a normal empty filter.
+            $routes = @(Get-NetRoute -AddressFamily IPv4 -ErrorAction Stop | Where-Object {
+                $_.DestinationPrefix -eq '0.0.0.0/0' -and $_.NextHop -and $_.NextHop -ne '0.0.0.0'
+            } | Sort-Object @{ Expression = { [long]$_.RouteMetric + [long]$_.InterfaceMetric } }, InterfaceIndex)
             $snapshot = Get-InterfaceSnapshot
-            $activePhysical = @($physical | Where-Object { $_.Status -eq 'Up' })
-            $active = Select-NamedAdapter -Adapters $activePhysical
-            if ($active) {
-                if (-not $snapshot.ByIndex.ContainsKey([int]$active.InterfaceIndex)) {
-                    $errorCode = 'adapter_snapshot_changed'
-                    throw 'The active adapter changed state during the reading. Windows must return a fresh interface snapshot.'
-                }
-                $selected = $snapshot.ByIndex[[int]$active.InterfaceIndex]
+            $routes = @($routes | Where-Object { $snapshot.ByIndex.ContainsKey([int]$_.InterfaceIndex) })
+            if ($routes.Count) {
+                $selected = $snapshot.ByIndex[[int]$routes[0].InterfaceIndex]
+                $gateway = [string]$routes[0].NextHop
             } else {
-                $disabled = Select-NamedAdapter -Adapters @($physical | Where-Object { $_.Status -eq 'Disabled' })
-                if ($disabled) {
-                    Write-Reading $false 'disabled' $disabled.Name $null $null @() 'unknown' 'unknown'
-                    exit 0
-                }
-                $disconnected = Select-NamedAdapter -Adapters @($physical | Where-Object { $_.Status -in @('Disconnected', 'Lower Layer Down') })
-                if ($disconnected) {
-                    Write-Reading $false 'disconnected' $disconnected.Name $null $null @() 'unknown' 'unknown'
-                    exit 0
+                # Disabled adapters can be absent from the .NET snapshot. Query adapter
+                # administrative state only on this path, never infer Disabled from Down.
+                $physical = @(Get-NetAdapter -Physical -ErrorAction Stop)
+                $snapshot = Get-InterfaceSnapshot
+                $activePhysical = @($physical | Where-Object { $_.Status -eq 'Up' })
+                $active = Select-NamedAdapter -Adapters $activePhysical
+                if ($active) {
+                    if (-not $snapshot.ByIndex.ContainsKey([int]$active.InterfaceIndex)) {
+                        $errorCode = 'adapter_snapshot_changed'
+                        throw 'The active adapter changed state during the reading. Windows must return a fresh interface snapshot.'
+                    }
+                    $selected = $snapshot.ByIndex[[int]$active.InterfaceIndex]
+                } else {
+                    $disabled = Select-NamedAdapter -Adapters @($physical | Where-Object { $_.Status -eq 'Disabled' })
+                    if ($disabled) {
+                        Write-Reading $false 'disabled' $disabled.Name $null $null @() 'unknown' 'unknown'
+                        exit 0
+                    }
+                    $disconnected = Select-NamedAdapter -Adapters @($physical | Where-Object { $_.Status -in @('Disconnected', 'Lower Layer Down') })
+                    if ($disconnected) {
+                        Write-Reading $false 'disconnected' $disconnected.Name $null $null @() 'unknown' 'unknown'
+                        exit 0
+                    }
                 }
             }
         }
