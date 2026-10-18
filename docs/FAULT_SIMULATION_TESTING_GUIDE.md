@@ -6,6 +6,8 @@ Use this file to test diagnosis, repair, displayed results, and restored connect
 
 The seven guarded scenarios below passed three times each during the real laptop QA on 16 October 2026. Some tests deliberately leave a fault in place after a repair command: reporting **not verified** is the expected, correct result. Additional lab-only coverage is listed at the end.
 
+For successful demonstrations and their exact evidence, see the [running demo test log](DEMO_TEST_LOG.md). Add each newly demonstrated scenario there without replacing previous results.
+
 ## 1. Prepare the laptop and application
 
 - Work locally on the laptop. These tests can temporarily disconnect its network.
@@ -19,10 +21,16 @@ If the application server is not already running with administrator rights, star
 
 ```powershell
 Set-Location C:\xampp\htdocs\NetRescue_CIT_Final
+$serverPrincipal = [Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()
+if (-not $serverPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
+    throw 'Open Windows PowerShell using Run as administrator, then retry.'
+}
 & 'C:\xampp\php\php.exe' artisan serve --no-reload --host=127.0.0.1 --port=8000
 ```
 
 Leave that window running. Open **http://127.0.0.1:8000** in your browser.
+
+If port 8000 is already served by a PHP process without administrator rights, stop that application's server with Ctrl+C in its server window, then relaunch it from the administrator window. An already running PHP process does not gain administrator rights when you open another elevated terminal. Leave MySQL running.
 
 ## 2. Prepare the second PowerShell window
 
@@ -30,6 +38,9 @@ Open a second **Administrator Windows PowerShell** window. Run this setup once i
 
 ```powershell
 Set-Location C:\xampp\htdocs\NetRescue_CIT_Final
+
+# Allow local scripts in this terminal session; answer Y if prompted.
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 
 Get-NetAdapter | Select-Object Name, Status
 
@@ -44,6 +55,8 @@ $qaOptions = @{
 ```
 
 If the adapter has a different name, replace `Wi-Fi` in `$qaOptions` with the exact name shown. Repeat this setup if you open a new terminal window.
+
+The process-scoped execution policy ends when this PowerShell session closes. It permits the local runner to load; it does not grant administrator rights to PHP. If an organization-managed policy still blocks the runner, inspect `Get-ExecutionPolicy -List` before continuing.
 
 Inspect displays the adapter/DHCP/DNS configuration and latest application evidence without injecting a fault. Click **Run Check** in NetRescue and confirm **Network Operational** before proceeding. A successful DNS lookup above the warning threshold can still be shown as slow.
 
@@ -171,6 +184,8 @@ Get-NetFirewallRule -Name 'NetRescueQA-*' -ErrorAction SilentlyContinue |
 ```
 
 Both should return no QA entries after successful restoration. Then click **Run Check** in NetRescue and confirm gateway, Internet, and DNS succeed. A slow DNS warning alone is different from a failed lookup.
+
+**If Wi-Fi already recovered automatically:** a verified repair confirms that the application verified its repair. A Closed incident can also mean that recovery was only observed by a later Check; read its resolution text. Also check the QA tasks/rules above. If cleanup has already happened and connectivity is confirmed, an extra Restore invocation is unnecessary; record those checks. If a QA task remains, use that run's exact saved-state Restore command. The runner's watchdog and the application's repair are separate mechanisms, so do not infer which one restored connectivity from Wi-Fi being Up alone.
 
 **If restoration fails:** stop testing. Keep the state file and task. Read `restore-errors.txt` in that run's directory, address the reported issue, and retry the same Restore command. Do not remove the task to bypass the next-test guard. Successful command completion alone does not prove connectivity is restored.
 
