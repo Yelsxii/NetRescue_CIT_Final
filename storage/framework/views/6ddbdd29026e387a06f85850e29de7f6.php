@@ -22,23 +22,43 @@
     </header>
 
     <section class="table-panel log-panel">
-        <div class="table-scroll">
+        <p class="table-scroll-hint"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'chevron','size' => '14']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('icon'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['name' => 'chevron','size' => '14']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $attributes = $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?> Scroll to see all columns</p>
+        <div class="table-scroll" role="region" aria-label="Incident history" tabindex="0">
             <table class="data-table incident-table">
                 <colgroup><col style="width:23%"><col style="width:17%"><col style="width:12%"><col style="width:38%"><col style="width:10%"></colgroup>
                 <thead>
                     <tr>
-                        <th>Incident</th>
-                        <th>Started</th>
-                        <th>Duration</th>
-                        <th>Outcome and repair</th>
-                        <th>Status</th>
+                        <th scope="col">Incident</th>
+                        <th scope="col">Started</th>
+                        <th scope="col">Duration</th>
+                        <th scope="col">Outcome and repair</th>
+                        <th scope="col">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php $__empty_1 = true; $__currentLoopData = $incidents; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $incident): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                         <?php ($story = $incident->story()); ?>
                         <tr data-href="<?php echo e(route('incidents.show', $incident)); ?>">
-                            <td><?php echo e($incident->plainProblem()); ?></td>
+                            <td><a class="incident-link" data-incident-link href="<?php echo e(route('incidents.show', $incident)); ?>"><?php echo e($incident->plainProblem()); ?></a></td>
                             <td><?php echo e($incident->first_detected_at->format('M j, g:i:s A')); ?></td>
                             <td><?php echo e($incident->durationLabel()); ?></td>
                             <td class="incident-resolution"><p data-story-resolution><?php echo e($story['resolution']); ?></p><p class="quiet" data-story-repair><?php echo e($story['repair']); ?></p></td>

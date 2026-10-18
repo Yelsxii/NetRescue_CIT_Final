@@ -18,11 +18,33 @@
 </head>
 <body data-latest-check-id="<?php echo e(\App\Models\HealthCheck::where('device_id', \App\Models\Device::localHost()->id)->latest('checked_at')->orderByDesc('id')->value('id') ?? ''); ?>">
 <div class="app-shell" id="appShell">
-    <aside class="sidebar" id="sidebar">
+    <aside class="sidebar" id="sidebar" aria-label="Navigation menu">
         <div class="side-top">
-            <button type="button" class="brand-toggle" id="sidebarCollapseButton" aria-label="Collapse menu" title="Collapse menu">
+            <button type="button" class="brand-toggle" id="sidebarCollapseButton" aria-label="Collapse menu" aria-controls="sidebar" aria-expanded="true" title="Collapse menu">
                 <img class="brand-logo" src="<?php echo e(asset('images/netrescue-logo.png')); ?>" alt="NetRescue">
                 <img class="brand-mark" src="<?php echo e(asset('images/netrescue-mark.png')); ?>" alt="">
+            </button>
+            <button type="button" class="icon-button sidebar-close" id="sidebarCloseButton" aria-label="Close menu">
+                <?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'close','size' => '18']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('icon'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['name' => 'close','size' => '18']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $attributes = $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?>
             </button>
         </div>
 
@@ -125,13 +147,13 @@
         <div class="side-spacer"></div>
     </aside>
 
-    <button type="button" class="sidebar-scrim" id="sidebarScrim" aria-label="Close menu"></button>
+    <button type="button" class="sidebar-scrim" id="sidebarScrim" aria-label="Close menu" tabindex="-1"></button>
 
     <main class="main-panel">
         <header class="topbar">
             <div class="topbar-left">
-                <button type="button" class="menu-toggle mobile-menu" id="mobileMenuButton" aria-label="Open menu">
-                    <span class="menu-lines"><i></i><i></i><i></i></span>
+                <button type="button" class="menu-toggle mobile-menu" id="mobileMenuButton" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false">
+                    <span class="menu-lines" aria-hidden="true"><i></i><i></i><i></i></span>
                 </button>
             </div>
             <div class="topbar-actions">
@@ -214,13 +236,32 @@
 
 <?php ($settingsModal = \App\Models\MonitorSetting::current()); ?>
 <div class="modal-backdrop" id="settingsModal" aria-hidden="true">
-    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle" tabindex="-1">
         <div class="modal-head">
             <div>
                 <span class="eyebrow">Settings</span>
                 <h2 id="settingsModalTitle">Monitoring</h2>
             </div>
-            <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+            <button class="icon-button" type="button" data-close-modal aria-label="Close settings"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'close','size' => '18']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('icon'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['name' => 'close','size' => '18']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $attributes = $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?></button>
         </div>
         <form action="<?php echo e(route('settings.update')); ?>" method="POST" class="modal-body js-busy-form" data-busy-text="Saving monitoring settings…">
             <?php echo csrf_field(); ?>
@@ -240,7 +281,7 @@
             <div class="form-grid">
                 <div class="field-group">
                     <label for="interval_minutes">Check every</label>
-                    <select id="interval_minutes" name="interval_minutes">
+                    <select id="interval_minutes" name="interval_minutes" data-menu-select>
                         <?php $__currentLoopData = [1,5,10,15,30,60]; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $minutes): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); ?>
                             <option value="<?php echo e($minutes); ?>" <?php if((int) old('interval_minutes', $settingsModal->interval_minutes) === $minutes): echo 'selected'; endif; ?>><?php echo e($minutes); ?> minute<?php echo e($minutes > 1 ? 's' : ''); ?></option>
                         <?php endforeach; $__env->popLoop(); $loop = $__env->getLastLoop(); ?>
@@ -248,9 +289,51 @@
                 </div>
                 <div class="field-group">
                     <label for="latency_warning_ms">Slow-response warning</label>
-                    <div class="input-suffix">
-                        <input id="latency_warning_ms" type="number" min="10" max="1000" name="latency_warning_ms" value="<?php echo e(old('latency_warning_ms', $settingsModal->latency_warning_ms)); ?>" required>
-                        <span>ms</span>
+                    <div class="number-stepper" data-number-stepper>
+                        <button type="button" class="number-stepper-button" data-step-number="-1" aria-label="Decrease slow-response warning by 1 millisecond" aria-controls="latency_warning_ms"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'minus','size' => '16']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('icon'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['name' => 'minus','size' => '16']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $attributes = $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?></button>
+                        <div class="number-stepper-value">
+                            <input id="latency_warning_ms" type="number" min="10" max="1000" step="1" name="latency_warning_ms" value="<?php echo e(old('latency_warning_ms', $settingsModal->latency_warning_ms)); ?>" aria-describedby="latencyWarningUnit" required>
+                            <span class="number-stepper-unit" id="latencyWarningUnit">ms</span>
+                        </div>
+                        <button type="button" class="number-stepper-button" data-step-number="1" aria-label="Increase slow-response warning by 1 millisecond" aria-controls="latency_warning_ms"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'plus','size' => '16']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('icon'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['name' => 'plus','size' => '16']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $attributes = $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?></button>
                     </div>
                 </div>
             </div>
@@ -276,13 +359,32 @@
 </div>
 
 <div class="modal-backdrop" id="recoveryModal" aria-hidden="true">
-    <div class="modal-card modal-sm" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle">
+    <div class="modal-card modal-sm" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle" tabindex="-1">
         <div class="modal-head">
             <div>
                 <span class="eyebrow">Approved repair</span>
                 <h2 id="recoveryModalTitle">Run the safe repair?</h2>
             </div>
-            <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+            <button class="icon-button" type="button" data-close-modal aria-label="Close repair dialog"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'close','size' => '18']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('icon'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['name' => 'close','size' => '18']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $attributes = $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?></button>
         </div>
         <div class="modal-body">
             <p id="recoveryModalText">The approved repair runs on this computer, then its result is verified automatically.</p>
@@ -298,8 +400,27 @@
 </div>
 
 <div class="modal-backdrop" id="recordModal" aria-hidden="true">
-    <div class="modal-card record-modal" role="dialog" aria-modal="true" aria-labelledby="recordModalTitle">
-        <button class="icon-button record-close" type="button" data-close-modal aria-label="Close">×</button>
+    <div class="modal-card record-modal" role="dialog" aria-modal="true" aria-labelledby="recordModalTitle" aria-label="Incident details" tabindex="-1">
+        <button class="icon-button record-close" type="button" data-close-modal aria-label="Close incident details"><?php if (isset($component)) { $__componentOriginalce262628e3a8d44dc38fd1f3965181bc = $component; } ?>
+<?php if (isset($attributes)) { $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc = $attributes; } ?>
+<?php $component = Illuminate\View\AnonymousComponent::resolve(['view' => 'components.icon','data' => ['name' => 'close','size' => '18']] + (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag ? $attributes->all() : [])); ?>
+<?php $component->withName('icon'); ?>
+<?php if ($component->shouldRender()): ?>
+<?php $__env->startComponent($component->resolveView(), $component->data()); ?>
+<?php if (isset($attributes) && $attributes instanceof Illuminate\View\ComponentAttributeBag): ?>
+<?php $attributes = $attributes->except(\Illuminate\View\AnonymousComponent::ignoredParameterNames()); ?>
+<?php endif; ?>
+<?php $component->withAttributes(['name' => 'close','size' => '18']); ?>
+<?php echo $__env->renderComponent(); ?>
+<?php endif; ?>
+<?php if (isset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $attributes = $__attributesOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__attributesOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?>
+<?php if (isset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc)): ?>
+<?php $component = $__componentOriginalce262628e3a8d44dc38fd1f3965181bc; ?>
+<?php unset($__componentOriginalce262628e3a8d44dc38fd1f3965181bc); ?>
+<?php endif; ?></button>
         <div id="recordModalBody"></div>
     </div>
 </div>
