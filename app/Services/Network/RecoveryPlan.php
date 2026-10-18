@@ -52,7 +52,7 @@ class RecoveryPlan
         }
 
         if ($actionCode === 'renew_dhcp' && in_array($incident->code, ['gateway_unreachable', 'gateway_missing', 'ip_configuration_missing', 'dhcp_issue'], true) && filled($after->interface_name)) {
-            return ['restart_adapter', 'Renew did not restore the connection. Restart '.$name.', then measure again.'];
+            return ['restart_adapter', 'Renewal did not restore the connection. You can try restarting '.$name.' as another attempt. This briefly disconnects the adapter and may not fix the cause; review and confirm before continuing.'];
         }
 
         if ($actionCode === 'restart_adapter') {

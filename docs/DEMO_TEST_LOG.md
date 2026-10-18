@@ -4,6 +4,8 @@ This is the running record of demonstrated commands and procedures. Demo 005 is 
 
 Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requires command completion and successful automatic verification on the same adapter. Record teardown confirmation separately from repair success.
 
+**Repair UI update, 18 October 2026:** current buttons use action-specific Try… labels and every follow-up request opens a review dialog before confirmation. Historical entries retain the labels shown during their original runs. Use the [current testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) for new demonstrations; see the [repair UI verification report](REPAIR_UX_QA_2026-10-18.md) for the isolated interface checks. This update does not rewrite stored incidents or earlier repair outcomes.
+
 **Preferred live demo procedure:** inject one fault in PowerShell without `-ExerciseApp`, click **Run Check** in the browser, click **Run repair** once if offered, and let the application verify it. For time-sensitive NoIpv4, request repair promptly from the dashboard and inspect the detailed incident afterward. Restore the QA run, then click a closing **Run Check** and confirm task/rule cleanup. The runner's prerequisite baseline Check and safety rollback still run automatically. Demos 001 and 003 used the browser procedure; Demo 002 retains an automated success.
 
 ## Demonstration index

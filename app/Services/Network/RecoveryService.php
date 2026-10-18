@@ -5,6 +5,7 @@ namespace App\Services\Network;
 use App\Models\Incident;
 use App\Models\Device;
 use App\Models\RecoveryAction;
+use App\Exceptions\RepairConfirmationRequired;
 use Illuminate\Support\Facades\Cache;
 use Throwable;
 
@@ -18,7 +19,7 @@ class RecoveryService
         private readonly RecoveryWaitClock $clock,
     ) {}
 
-    public function attempt(Incident $incident): RecoveryAction
+    public function attempt(Incident $incident, ?array $confirmation = null): RecoveryAction
     {
         if ((int) $incident->device_id !== Device::localHost()->id) {
             throw new \RuntimeException('Only incidents from this computer can be repaired.');
@@ -30,19 +31,30 @@ class RecoveryService
         }
         try {
             $incident->refresh();
-            return $this->attemptLocked($incident);
+            return $this->attemptLocked($incident, $confirmation);
         } finally {
             $lock->release();
         }
     }
 
-    private function attemptLocked(Incident $incident): RecoveryAction
+    private function attemptLocked(Incident $incident, ?array $confirmation): RecoveryAction
     {
         if (! $incident->is_active) throw new \RuntimeException('This incident is no longer active.');
         if ((int) $incident->device_id !== Device::localHost()->id) throw new \RuntimeException('Only incidents from this computer can be repaired.');
         $actionCode = $incident->recovery_action_code;
         if (! in_array($actionCode, ['flush_dns', 'renew_dhcp', 'enable_adapter', 'restart_adapter'], true)) {
             throw new \RuntimeException('No local recovery action is defined for this incident.');
+        }
+        if ($confirmation !== null) {
+            // Check consent after taking the repair lock, against fresh state.
+            // A stale page must never silently approve a different next action.
+            $previousId = $incident->recoveryActions()->value('id') ?? 0;
+            $actionChanged = filled($confirmation['action'] ?? null) && $confirmation['action'] !== $actionCode;
+            $stale = (int) ($confirmation['previous_id'] ?? 0) !== (int) $previousId;
+            $unconfirmed = $previousId && (! ($confirmation['confirmed'] ?? false) || ($confirmation['action'] ?? null) !== $actionCode);
+            if ($actionChanged || $stale || $unconfirmed) {
+                throw new RepairConfirmationRequired('Review the latest result and confirm the current repair option before trying again.');
+            }
         }
         $targetName = $incident->latestHealthCheck?->interface_name;
         $beforeResult = $this->healthService->run('recovery_before', false, $targetName);

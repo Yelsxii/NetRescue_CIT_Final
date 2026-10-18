@@ -127,28 +127,54 @@
     qsa('.main-nav .nav-link').forEach((link) => link.addEventListener('click', () => closeMobileSidebar()));
 
     const modalOpeners = new WeakMap();
+    const modalStack = [];
+    let pendingRepairForm = null;
+    let pendingRepairSubmitter = null;
+    const approvedRepairs = new WeakSet();
+    const syncModalLayers = () => {
+        modalStack.forEach((modal, index) => {
+            const top = index === modalStack.length - 1;
+            modal.inert = !top;
+            modal.style.zIndex = String(90 + index * 2);
+            modal.setAttribute('aria-hidden', top ? 'false' : 'true');
+        });
+        if (appShell) appShell.inert = modalStack.length > 0;
+        document.body.classList.toggle('modal-open', modalStack.length > 0);
+    };
     const openModal = (id) => {
         const modal = document.getElementById(id);
         if (!modal) return;
         if (!modal.classList.contains('is-open')) modalOpeners.set(modal, document.activeElement);
         closeMobileSidebar(false);
         modal.classList.add('is-open');
-        modal.setAttribute('aria-hidden', 'false');
-        if (appShell) appShell.inert = true;
-        document.body.classList.add('modal-open');
+        const existing = modalStack.indexOf(modal);
+        if (existing !== -1) modalStack.splice(existing, 1);
+        modalStack.push(modal);
+        syncModalLayers();
         (focusable(modal)[0] || qs('[role="dialog"]', modal))?.focus();
     };
 
     const closeModal = (modal) => {
         if (!modal) return;
         closeMenus();
+        const wasTop = modalStack.at(-1) === modal;
+        if (modal.id === 'recoveryModal' && pendingRepairForm) {
+            const approval = qs('[name="repair_confirmed"]', pendingRepairForm);
+            if (approval) approval.value = '0';
+            pendingRepairForm = null;
+            pendingRepairSubmitter = null;
+        }
         modal.classList.remove('is-open');
+        modal.inert = true;
         modal.setAttribute('aria-hidden', 'true');
-        if (!qsa('.modal-backdrop.is-open').length) {
-            document.body.classList.remove('modal-open');
-            if (appShell) appShell.inert = false;
+        const index = modalStack.indexOf(modal);
+        if (index !== -1) modalStack.splice(index, 1);
+        syncModalLayers();
+        if (wasTop) {
+            const top = modalStack.at(-1);
             const opener = modalOpeners.get(modal);
-            if (opener?.isConnected && !opener.closest('[inert]')) opener.focus();
+            if (opener?.isConnected && !opener.closest('[inert]') && (!top || top.contains(opener))) opener.focus();
+            else if (top) (focusable(top)[0] || qs('[role="dialog"]', top))?.focus();
             else if (mobileViewport.matches) mobileMenuButton?.focus();
         }
     };
@@ -162,7 +188,7 @@
     }));
 
     document.addEventListener('keydown', (event) => {
-        const modal = qsa('.modal-backdrop.is-open').at(-1);
+        const modal = modalStack.at(-1);
         if (event.key === 'Tab') {
             if (modal) trapFocus(event, modal);
             else if (sidebar?.classList.contains('is-open')) trapFocus(event, sidebar);
@@ -178,14 +204,27 @@
         else closeMobileSidebar();
     });
 
-    const recoveryForm = qs('#recoveryModalForm');
-    const recoveryText = qs('#recoveryModalText');
-    qsa('[data-recovery-action]').forEach((button) => {
-        button.addEventListener('click', () => {
-            if (recoveryForm) recoveryForm.action = button.dataset.recoveryAction;
-            if (recoveryText) recoveryText.textContent = button.dataset.recoveryText || 'NetRescue will run only the approved repair and verify the result.';
-            openModal('recoveryModal');
-        });
+    const repairConfirmButton = qs('#recoveryModalConfirm');
+    repairConfirmButton?.addEventListener('click', () => {
+        const form = pendingRepairForm;
+        const submitter = pendingRepairSubmitter;
+        if (!form?.isConnected || repairConfirmButton.disabled) return;
+        repairConfirmButton.disabled = true;
+        const approval = qs('[name="repair_confirmed"]', form);
+        if (approval) approval.value = '1';
+        approvedRepairs.add(form);
+        pendingRepairForm = null;
+        pendingRepairSubmitter = null;
+        closeModal(qs('#recoveryModal'));
+        try {
+            // Submit the original form, retaining CSRF, action identity and return_to.
+            if (submitter?.isConnected && submitter.form === form) form.requestSubmit(submitter);
+            else form.requestSubmit();
+        } finally {
+            approvedRepairs.delete(form);
+            if (!operationBusy && approval) approval.value = '0';
+            repairConfirmButton.disabled = false;
+        }
     });
 
     const busyOverlay = qs('#busyOverlay');
@@ -207,14 +246,39 @@
         const form = event.target;
         if (!(form instanceof HTMLFormElement) || !form.classList.contains('js-busy-form')) return;
         if (operationBusy) { event.preventDefault(); return; }
+        if (form.classList.contains('js-repair-form') && form.dataset.repairConfirmation === 'required' && !approvedRepairs.has(form)) {
+            event.preventDefault();
+            pendingRepairForm = form;
+            pendingRepairSubmitter = event.submitter || qs('button[type="submit"]', form);
+            const fields = {
+                recoveryModalTitle: form.dataset.repairTitle,
+                recoveryModalPrevious: form.dataset.repairPrevious,
+                recoveryModalPurpose: form.dataset.repairPurpose,
+                recoveryModalLimitation: form.dataset.repairLimitation,
+                recoveryModalConsequence: form.dataset.repairConsequence,
+            };
+            Object.entries(fields).forEach(([id, value]) => {
+                const element = document.getElementById(id);
+                if (element) element.textContent = value || '';
+            });
+            if (repairConfirmButton) {
+                repairConfirmButton.textContent = form.dataset.repairButton || 'Confirm this attempt';
+                repairConfirmButton.disabled = false;
+            }
+            const approval = qs('[name="repair_confirmed"]', form);
+            if (approval) approval.value = '0';
+            openModal('recoveryModal');
+            return;
+        }
+        approvedRepairs.delete(form);
         operationBusy = true;
         busyStarted = Date.now();
         qsa('button[type="submit"]', form).forEach((button) => button.disabled = true);
         const repairing = new URL(form.action, window.location.href).pathname.endsWith('/recover');
-        if (busyTitle) busyTitle.textContent = repairing
-            ? 'Checking the condition, repairing, and verifying…' : (form.dataset.busyText || 'Working…');
+        if (busyTitle) busyTitle.textContent = form.dataset.busyText || (repairing
+            ? 'Checking the condition and trying the repair…' : 'Working…');
         if (busyDetail) busyDetail.textContent = repairing
-            ? 'Verification and the result update are automatic, even with scheduled checks paused.'
+            ? 'Checks first and skips the command if already recovered. Follow-up checks report whether this attempt helped.'
             : 'The page will update when this request finishes.';
         if (busyElapsed) busyElapsed.textContent = 'Elapsed: 0 seconds';
         busyTimer = setInterval(() => {
@@ -234,12 +298,12 @@
         setInterval(async () => {
             // A before/after reading can change /status during repair. Never
             // navigate away from an active repair to refresh those partial results.
-            if (document.hidden || operationBusy) return;
+            if (document.hidden || operationBusy || modalStack.length) return;
             try {
                 const response = await fetch('/status', { headers: { Accept: 'application/json' }, cache: 'no-store' });
                 if (!response.ok) return;
                 const data = await response.json();
-                if (!operationBusy && Number(data.latest_check_id || 0) > initialCheckId) window.location.reload();
+                if (!operationBusy && !modalStack.length && Number(data.latest_check_id || 0) > initialCheckId) window.location.reload();
             } catch (_) {
                 // Auto-refresh is a convenience. Monitoring continues even if this browser request fails.
             }

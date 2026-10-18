@@ -679,6 +679,14 @@ html.theme-light .theme-toggle .icon-moon { display: block; }
 .record-modal .case-fact { color: #f8fbff; font-size: 14px; line-height: 1.4; }
 .record-modal .quiet { color: #9fb0cc; }
 .modal-sm { width: min(420px, 100%); }
+.repair-confirmation { width: min(520px, 100%); }
+.repair-confirmation .modal-body { gap: 14px; line-height: 1.5; }
+.repair-confirmation h3 { margin-bottom: 4px; font-size: 13px; color: var(--muted); }
+.repair-confirmation p, .repair-confirmation-page p { overflow-wrap: anywhere; }
+.repair-confirmation .modal-actions, .repair-confirmation-page .modal-actions { flex-wrap: wrap; justify-content: flex-end; }
+.repair-confirmation .button, .repair-confirmation-page .button { height: auto; min-height: 38px; white-space: normal; }
+.repair-consequence { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
+.repair-confirmation-page { max-width: 700px; display: grid; gap: 16px; }
 .modal-head, .modal-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .modal-head, .modal-body { padding: 20px; }
 .modal-head { flex: none; }
@@ -1000,7 +1008,7 @@ html.theme-light .incident-table thead th { background: #edf2f9; color: #41536d;
 .case-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .case-card-head h2 { flex: 1; min-width: 0; margin: 0; line-height: 1.4; }
 .case-repair-action { flex: none; margin: 0; }
-.case-repair-action .button { height: 30px; padding: 0 10px; font-size: 12px; white-space: nowrap; }
+.case-repair-action .button { height: auto; min-height: 30px; padding: 6px 10px; font-size: 12px; white-space: normal; }
 .repair-request-record { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
 
 /* The local console summarizes one computer. */

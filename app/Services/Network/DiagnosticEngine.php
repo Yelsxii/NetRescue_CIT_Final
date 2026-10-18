@@ -46,7 +46,7 @@ class DiagnosticEngine
                     'Windows still has the adapter, and it can be enabled.',
                     'Gateway, Internet, and name lookup were not run because the adapter is off.',
                 ],
-                recommendedAction: 'Run repair to enable '.$name.' and verify the result automatically.',
+                recommendedAction: 'Try enabling adapter to ask Windows to turn on '.$name.'. NetRescue checks whether it reconnects; recovery is not guaranteed.',
                 recoveryActionCode: filled($metrics['interface_name'] ?? null) ? 'enable_adapter' : null,
             );
         }
@@ -95,7 +95,7 @@ class DiagnosticEngine
                     'The adapter is active but does not have a normal LAN IPv4 assignment.',
                     'Gateway, Internet, and DNS checks are not treated as primary failures until the IP configuration is corrected.',
                 ],
-                recommendedAction: 'Run repair to request a fresh DHCP lease and verify the result automatically.',
+                recommendedAction: 'Try release and renew to request a fresh DHCP lease. NetRescue checks whether it helps; recovery is not guaranteed.',
                 recoveryActionCode: 'renew_dhcp',
             );
         }
@@ -111,7 +111,7 @@ class DiagnosticEngine
                 severity: 'high',
                 summary: 'The active adapter does not have a usable IPv4 address.',
                 details: ['Check DHCP or manual IPv4 configuration before testing external connectivity.'],
-                recommendedAction: 'Run repair to renew the address from the router and verify it automatically.',
+                recommendedAction: 'Try renewing address to request IPv4 configuration from the router, then check whether a usable address returns.',
                 recoveryActionCode: 'renew_dhcp',
             );
         }
@@ -127,7 +127,7 @@ class DiagnosticEngine
                 severity: 'high',
                 summary: 'The adapter has an IPv4 address but Windows does not currently report a default IPv4 gateway.',
                 details: ['Without a default gateway, traffic usually cannot leave the local network.'],
-                recommendedAction: 'Run repair to renew the address and automatically check for a gateway.',
+                recommendedAction: 'Try renewing address to request the gateway configuration again. NetRescue verifies whether the gateway returns.',
                 recoveryActionCode: 'renew_dhcp',
             );
         }
@@ -157,7 +157,7 @@ class DiagnosticEngine
                     'A local link, access point, router, firewall, or gateway problem is possible; these tests do not prove which device failed.',
                     'The external TCP failure is retained as evidence. Name lookup was not tested because the external path failed.',
                 ],
-                recommendedAction: 'Run repair to renew the address and automatically measure the gateway again.',
+                recommendedAction: 'Try renewing address for a possible local configuration problem. Renewal cannot remove a firewall block or fix a router outage; NetRescue checks whether it helps.',
                 recoveryActionCode: 'renew_dhcp',
             );
         }
@@ -187,7 +187,7 @@ class DiagnosticEngine
                     'External TCP connectivity passed.',
                     'The DNS test failed independently, so this is treated as a DNS-specific condition.',
                 ],
-                recommendedAction: 'Clear the local DNS resolver cache and automatically verify resolution again.',
+                recommendedAction: 'Try clearing DNS cache to discard cached lookup records, then test again. This does not replace the configured DNS servers.',
                 recoveryActionCode: 'flush_dns',
             );
         }

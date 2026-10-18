@@ -2,9 +2,11 @@
 
 Use this file to test diagnosis, repair, displayed results, and restored connectivity on the Windows laptop.
 
-**Run one fault at a time: healthy check → inject → Run Check → one offered repair → review results → Restore → healthy check.**
+**Run one fault at a time: healthy check → inject → Run Check → one offered Try… action → review results → Restore → healthy check.**
 
-**This is a browser-operated demo:** use PowerShell for fault setup and restoration, then click **Run Check** and **Run repair** yourself in NetRescue, just like the disabled-adapter demo. Leave `-ExerciseApp` off every demo injection command; it would perform those application actions for you. The application's automatic verification after your repair click and the runner's safety rollback remain enabled.
+**This is a browser-operated demo:** use PowerShell for fault setup and restoration, then click **Run Check** and the named **Try…** repair option yourself in NetRescue. Buttons now name the action, such as **Try enabling adapter** or **Try renewing address**, rather than promising recovery. Leave `-ExerciseApp` off every demo injection command; it would perform those application actions for you. The application's automatic verification after your repair click and the runner's safety rollback remain enabled.
+
+**Every follow-up attempt requires review.** After any earlier repair request for the incident, clicking its next Try… button opens a confirmation dialog. It shows the previous result, the proposed action, what it cannot fix, and any temporary disconnection. Cancel runs nothing. Confirm authorizes that action once; NetRescue still checks first and skips the command if the condition has already cleared. This applies to both a different next action and a retry of the same command. A stale page must review changed repair options before another command can run.
 
 The seven guarded scenarios below passed three times each during the real laptop QA on 16 October 2026. Some tests deliberately leave a fault in place after a repair command: reporting **not verified** is the expected, correct result. Additional lab-only coverage is listed at the end.
 
@@ -110,7 +112,7 @@ The updated runner now requires a simple DHCP baseline, saves the native release
 1. Confirm the previous run is restored. Keep the administrator PHP server running, Automatic checks paused, and the local NetRescue page open. Click **Run Check** and confirm **Network Operational**.
 2. Run the injection command above **without `-ExerciseApp`**. Wait for **NoIpv4 confirmed** and **Applied NoIpv4**. Keep the terminal open with its new **StatePath** visible. It saves the original settings and arms rollback before releasing the address. It does not request a post-injection diagnosis or repair.
 3. Immediately return to NetRescue and click **Run Check**; aim to start within a few seconds of **Applied**. Confirm this is a new reading after injection. Expect **IPv4 Configuration Missing** (`ip_configuration_missing`), or **Possible DHCP Configuration Issue** (`dhcp_issue`) if Windows has assigned APIPA. Wi-Fi can still show **Up** while lacking usable IPv4 configuration. Gateway/Internet/DNS probes should be shown as not tested when the address prerequisite fails.
-4. As soon as the result appears, click the offered **Run repair** on the dashboard once. Depending on the diagnosis, its label is **Renew the address** or **Release and renew the address**. Let NetRescue finish its automatic follow-up checks. Save the detailed incident walkthrough until after this step, so Windows has less time to recover before the repair precheck.
+4. As soon as the result appears, click the offered **Try renewing address** or **Try release and renew** button on the dashboard once. Let NetRescue finish its automatic follow-up checks. Save the detailed incident walkthrough until after this step, so Windows has less time to recover before the repair precheck. A repeat request on the same incident requires the follow-up confirmation described above.
 5. Now open the incident and show command completion, exit code **0**, and **verified** recovery on Wi-Fi. The follow-up must show a usable IPv4 address, gateway, and successful connectivity. A Closed label alone does not prove that the repair caused recovery. Record the incident reference, repair request, and displayed timings.
 6. Restore this run using its own saved path and section 5. This clears the QA rollback even if NetRescue already renewed the address. If cleanup has already completed, follow the confirmation procedure in section 5 instead.
 7. Click **Run Check** again and require **Network Operational**, successful gateway/Internet/DNS results, and no remaining QA tasks or rules. Record that closing Check separately.
@@ -197,6 +199,10 @@ If Internet or DNS also fails, or a fresh reading never observes the intended pi
 - **Repair:** request the offered DHCP renewal once.
 - **Pass:** while the block remains, a command can complete successfully but its repair must remain **not verified**. The application must not claim that renewal cleared the block.
 - **Next:** Restore removes the QA rule; run a closing Check. Later observed recovery must not be falsely credited to the earlier unverified repair.
+
+For the manual Fault 5 demo, click **Run Check** after injection, then **Try renewing address** once. While the injected block remains, the command may complete but the follow-up should report that the attempt did not clear the condition. DNS is **not tested** when the external connectivity prerequisite fails; it is not a separately measured DNS failure.
+
+If **Try restarting adapter** appears next, it is an optional escalation, not proof that renewal succeeded or a promise that restarting will fix the cause. Clicking it opens **Review another repair attempt**, explaining the earlier result and the brief disconnection. For this controlled firewall test, **Cancel** and use the saved-state Restore instead. After Restore, a fresh healthy Check records observed recovery; it must not credit the earlier ineffective renewal. Do not repeatedly request repairs to force a successful result.
 
 ### F. External test targets blocked — detection and manual guidance
 

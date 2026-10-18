@@ -1,6 +1,7 @@
 @php
     $story = $incident->story();
     $attempt = $incident->latestRecovery();
+    $repairGuidance = \App\Support\RepairGuidance::for($incident);
     $needsResultCheck = $incident->is_active && $attempt
         && in_array($attempt->verification_status, ['unread', 'adapter_changed'], true);
     $previousAttempts = $attempt
@@ -41,18 +42,18 @@
                     <button class="button button-primary" type="submit">Check result</button>
                 </form>
             @elseif($incident->canRepair())
-                <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form case-repair-action" data-busy-text="Checking the current condition and verifying the repair outcome...">
-                    @csrf
-                    <button class="button button-primary" type="submit">Run repair</button>
-                </form>
+                <x-repair-form :incident="$incident" class="case-repair-action" />
             @endif
         </div>
         <p class="case-fact" data-story-repair>{{ $story['repair'] }}</p>
         @if($needsResultCheck)
             <p class="quiet">Check result reads this incident's adapter again without repeating the repair command.</p>
         @elseif($incident->canRepair())
+            <p class="quiet">{{ $repairGuidance['purpose'] }}</p>
+            <p class="quiet">{{ $repairGuidance['limitation'] }}</p>
+            <p class="quiet">{{ $repairGuidance['consequence'] }}</p>
             <p class="quiet">Available action: <code>{{ $incident->repairCommand() }}</code></p>
-            <p class="quiet">Checks the current condition on this computer, runs the command if needed, then verifies automatically. Scheduled checks may stay paused.</p>
+            <p class="quiet">{{ $repairGuidance['is_follow_up'] ? 'Another attempt is optional and requires confirmation.' : 'Checks first and runs this action only if still needed.' }} Verification is automatic. Recovery is not guaranteed; scheduled checks may stay paused.</p>
         @elseif($incident->is_active)
             <p class="quiet">No repair command is available for this condition.</p>
         @endif

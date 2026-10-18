@@ -96,6 +96,7 @@ class RecoveryAction extends Model
             return match ($this->verification_status) {
                 'unread' => 'The command completed, but the follow-up reading did not finish; recovery was not verified.',
                 'changed_condition' => 'The command completed; the follow-up reported a different condition. Recovery was not verified.',
+                'not_verified' => $this->action_label.' completed, but follow-up checks still found '.($this->afterHealthCheck?->diagnosis_title ?: 'the target condition').'. This attempt did not clear the condition.',
                 default => 'The command completed, but the follow-up did not verify that the target condition cleared.',
             };
         }

@@ -155,10 +155,11 @@
                         $repairAdapter = $incident->latestHealthCheck?->interface_name;
                         $differentAdapter = filled($repairAdapter) && $repairAdapter !== $shown->interface_name;
                         $lastAttempt = $incident->latestRecovery();
+                        $repairGuidance = \App\Support\RepairGuidance::for($incident);
                         $unverifiedAttempt = $lastAttempt && in_array($lastAttempt->verification_status, ['pending', 'unread', 'adapter_changed'], true);
                     @endphp
                     <div class="repair-slot" data-repair-target="{{ $repairAdapter }}">
-                        <strong>{{ $differentAdapter || $unverifiedAttempt ? 'Repair result needs review' : 'Available repair' }}</strong>
+                        <strong>{{ $differentAdapter || $unverifiedAttempt ? 'Repair result needs review' : ($lastAttempt ? 'Another repair option' : 'Repair option') }}</strong>
                         @if($differentAdapter || $unverifiedAttempt)
                             <span>{{ $incident->reference }} · {{ $repairAdapter ?: 'Unknown adapter' }} · {{ $incident->plainProblem() }}</span>
                             <a class="button button-primary repair-review" href="{{ route('incidents.show', $incident) }}">Review result</a>
@@ -167,12 +168,12 @@
                             @endif
                             @if($lastAttempt)<p class="quiet">{{ $lastAttempt->outcomeSummary() }}</p>@endif
                         @elseif($incident->canRepair())
-                            <span>{{ $incident->repairCommand() }}</span>
-                            <form method="POST" action="{{ route('incidents.recover', $incident) }}" class="js-busy-form" data-busy-text="Running the repair and measuring again…">
-                                @csrf
-                                <input type="hidden" name="return_to" value="dashboard">
-                                <button class="button button-primary" type="submit">Run repair</button>
-                            </form>
+                            <span>{{ $repairGuidance['purpose'] }}</span>
+                            <x-repair-form :incident="$incident" return-to="dashboard" />
+                            @if($lastAttempt)<p class="quiet">Previous attempt: {{ $lastAttempt->outcomeSummary() }}</p>@endif
+                            <p class="quiet">{{ $repairGuidance['limitation'] }}</p>
+                            <p class="quiet">{{ $repairGuidance['consequence'] }}</p>
+                            <p class="quiet">{{ $repairGuidance['is_follow_up'] ? 'Review the next attempt before confirming it.' : 'NetRescue checks first, tries this action only if still needed, then verifies the result.' }}</p>
                         @else
                             <span>No repair command is available for this condition.</span>
                         @endif

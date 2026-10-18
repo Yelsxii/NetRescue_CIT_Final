@@ -149,23 +149,24 @@
 </div>
 
 <div class="modal-backdrop" id="recoveryModal" aria-hidden="true">
-    <div class="modal-card modal-sm" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle" tabindex="-1">
+    <div class="modal-card repair-confirmation" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle" aria-describedby="recoveryModalPrevious recoveryModalPurpose recoveryModalLimitation recoveryModalConsequence recoveryModalNote" tabindex="-1">
         <div class="modal-head">
             <div>
-                <span class="eyebrow">Approved repair</span>
-                <h2 id="recoveryModalTitle">Run the safe repair?</h2>
+                <span class="eyebrow">Another attempt is optional</span>
+                <h2 id="recoveryModalTitle">Review another repair attempt</h2>
             </div>
             <button class="icon-button" type="button" data-close-modal aria-label="Close repair dialog"><x-icon name="close" size="18" /></button>
         </div>
         <div class="modal-body">
-            <p id="recoveryModalText">The approved repair runs on this computer, then its result is verified automatically.</p>
-            <form method="POST" id="recoveryModalForm" class="js-busy-form" data-busy-text="Running the approved repair and checking the result…">
-                @csrf
-                <div class="modal-actions">
-                    <button type="button" class="button button-ghost" data-close-modal>Cancel</button>
-                    <button type="submit" class="button button-primary">Run repair</button>
-                </div>
-            </form>
+            <div><h3>Previous attempt</h3><p id="recoveryModalPrevious"></p></div>
+            <div><h3>What this attempt tries</h3><p id="recoveryModalPurpose"></p></div>
+            <p class="quiet" id="recoveryModalLimitation"></p>
+            <p class="repair-consequence" id="recoveryModalConsequence"></p>
+            <p class="quiet" id="recoveryModalNote">NetRescue checks first and skips the command if already recovered. Otherwise it tries this action and verifies the result. Recovery is not guaranteed.</p>
+            <div class="modal-actions">
+                <button type="button" class="button button-ghost" data-close-modal>Cancel</button>
+                <button type="button" class="button button-primary" id="recoveryModalConfirm">Confirm this attempt</button>
+            </div>
         </div>
     </div>
 </div>
