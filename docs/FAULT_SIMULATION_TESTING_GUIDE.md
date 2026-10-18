@@ -136,19 +136,55 @@ The **browser-operated repeat passed** on October 18: incident **NR-00059**, req
 
 ### D. Gateway ping blocked — detection only
 
+**Fault 4 manual demo.** This adds a temporary outbound ICMPv4 echo-request block to the selected adapter's gateway. It does not change DHCP, IPv4 addressing, or DNS settings. Internet access can remain usable. This test checks diagnosis and the decision to offer no repair; it does not demonstrate an application repair command.
+
+1. **Prepare.** Use the administrator server and runner setup in sections 1–2. Keep Automatic checks paused. Complete the previous run's Restore and confirm no QA tasks/rules remain. In NetRescue, click **Run Check** and require **Network Operational**, with gateway, Internet, and DNS passing.
+2. **Inject one fault.** In the prepared Administrator runner window, run the following command. Leave off `-ExerciseApp` so that you initiate the diagnosis in the browser:
+
 ```powershell
 & $qaRunner @qaOptions -Mode Apply -Fault GatewayPingBlocked
 ```
 
-- **Change:** adds a temporary outbound gateway ICMP echo block.
-- **Diagnosis:** gateway ping unanswered while Internet and DNS remain available; code `gateway_ping_unanswered`.
-- **Repair:** none offered.
-- **Pass:** the display explains the ping limitation without treating it as a proven Internet outage.
-- **Next:** Restore removes the QA rule; run a closing Check.
+Copy the **new StatePath** printed after **Rollback armed** and wait for **Applied GatewayPingBlocked**. The independent safety rollback is normally due in 10 minutes; perform the explicit Restore below after reviewing the result.
 
-For a manual demo, first complete Fault 3's Restore and click a fresh **Run Check** to confirm Network Operational. Run the command above without `-ExerciseApp`, retain its newly printed StatePath, then click **Run Check** yourself. Expect **Gateway Ping Unanswered; Internet Available**, with the gateway ping unanswered but Internet and DNS passing. Open the incident and confirm that no repair is offered. Browsing can remain usable throughout this test.
+3. **Check in the browser.** Click **Run Check** yourself after injection and verify the fresh reading. Open the detected incident and compare the result with this table:
 
-Use the exact saved-state Restore command in section 5 to remove this run's temporary ping-block rule. Click **Run Check** again and require gateway, Internet, and DNS success, then confirm no QA tasks/rules remain. Recovery after removing the rule is observed by a Check; there is no application repair command or repair duration for this scenario. If Internet or DNS also fails, retain the actual result and restore before retrying rather than counting the expected ping-only scenario as passed.
+| Item | Expected result |
+| --- | --- |
+| Diagnosis | **Gateway Ping Unanswered; Internet Available** (`gateway_ping_unanswered`) |
+| Adapter and configuration | Wi-Fi remains Up; usable IPv4 address and gateway remain present |
+| Gateway test | Ping unanswered; no measured gateway response time |
+| Internet test | External TCP connectivity passes |
+| DNS test | Lookup answers; a slow-answer warning alone is acceptable |
+| Available repair | **None**; no DHCP renewal or DNS flush is indicated |
+| Interpretation | Ping alone does not establish a router or Internet outage |
+
+Do not request a repair through an older incident. For this controlled simulation, Restore removes the deliberately added QA rule. A real router may intentionally decline ping responses; reviewing its ICMP configuration is only needed if gateway ping monitoring is desired.
+
+4. **Restore this run.** Replace the placeholder below with the exact StatePath from step 2, not a path from Fault 3:
+
+```powershell
+$fault4StatePath = 'C:\ProgramData\NetRescueQA\<fault-4-run-id>\state.json'
+& $qaRunner -Mode Restore -StatePath $fault4StatePath
+```
+
+Expect **Restored QA changes for Wi-Fi**. This removes the run-owned ping-block rule and clears its rollback task. If Restore reports an error, retain the state/task and follow section 5 before testing again.
+
+5. **Verify the final state.** Click **Run Check** again in NetRescue. Require **Network Operational**, gateway ping answering, and Internet/DNS passing. In the **Administrator runner window**, check cleanup:
+
+```powershell
+Get-ScheduledTask -TaskName 'NetRescueQA-*' -ErrorAction SilentlyContinue |
+    Select-Object TaskName, State
+
+Get-NetFirewallRule -Name 'NetRescueQA-*' -ErrorAction SilentlyContinue |
+    Select-Object Name, Enabled
+```
+
+Both queries should return no QA entries after successful cleanup. Do not infer cleanup from Wi-Fi being Up or the incident being Closed alone.
+
+6. **Record the demonstration.** Save the baseline/detected/closing Check IDs, incident reference, new StatePath, displayed diagnosis and lack of a repair, Restore output, and cleanup results in **Demo 005** of the [running demo log](DEMO_TEST_LOG.md). The current manual demonstration is **pending** until those results are supplied. Recovery after removing the rule is observed by a Check; record the repair command and repair duration as **not applicable**, not as a verified application repair.
+
+If Internet or DNS also fails, or a fresh reading never observes the intended ping-only condition, retain the actual result and restore before retrying. Do not count that attempt as the expected scenario passing.
 
 ### E. Gateway and external targets blocked — ineffective repair must stay unverified
 

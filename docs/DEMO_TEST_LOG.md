@@ -1,6 +1,6 @@
 # NetRescue running demo test log
 
-This is the running record of demonstrated commands and procedures. Append the next demonstration as Demo 005, then continue numbering. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
+This is the running record of demonstrated commands and procedures. Demo 005 is prepared below and remains pending until its manual test results are recorded. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
 
 Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requires command completion and successful automatic verification on the same adapter. Record teardown confirmation separately from repair success.
 
@@ -14,6 +14,7 @@ Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requi
 | 002 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) — automated | NR-00057 / request 36 | Verified renewal; exit 0; Network Operational | Runner printed Restore completed; post-Restore Check 634 healthy |
 | 003 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) — browser-operated | NR-00059 / request 38 | Verified release/renewal; exit 0; Network Operational | Restore completed; no QA tasks/rules; post-Restore browser Check 647 healthy |
 | 004 | 18 October 2026 | Missing default gateway (`GatewayMissing`) — user-reported browser procedure | NR-00062 / request 41 | Verified renewal; exit 0; gateway restored; Network Operational | Saved state confirms Restore; elevated task/rule queries empty and fresh host DNS/TCP pass; separate post-Restore app Check pending |
+| 005 | Pending | Gateway ping blocked (`GatewayPingBlocked`) — planned manual demo | Not recorded | Expected: detection only, no repair; result pending | Pending |
 
 ## Demo 001 — disabled Wi-Fi adapter repaired successfully
 
@@ -479,9 +480,30 @@ The previous `NoIpv4` run `74c879a762b14e128f69badfe18dd897` also had a saved `R
 
 **Verdict:** Fault 3 diagnosis and verified repair passed; saved-state restoration, QA cleanup, and subsequent host connectivity are confirmed. Capture a fresh application Check before the next injection to complete the closing application evidence.
 
-## Append the next demonstration here
+## Demo 005 — gateway ping blocked (manual test pending)
 
-Add Demo 005 after the next new successful procedure; retain all earlier entries. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
+**Status: procedure documented; no successful result is claimed yet.** Follow the numbered manual commands, expected results, and Restore steps in [Fault 4 / section 4D of the testing guide](FAULT_SIMULATION_TESTING_GUIDE.md#d-gateway-ping-blocked--detection-only).
+
+Inject with plain `Apply -Fault GatewayPingBlocked`, without `-ExerciseApp`, then click **Run Check** in the browser. Expect **Gateway Ping Unanswered; Internet Available** with Internet/DNS passing and no repair offered. Restore the exact new run, obtain a healthy closing browser Check, and verify from Administrator PowerShell that no QA tasks/rules remain. This is a detection-only demonstration; removing its QA rule is test cleanup, not a NetRescue application repair.
+
+| Evidence to fill after the test | Current record |
+| --- | --- |
+| Date/time, adapter, run ID and StatePath | Pending |
+| Healthy baseline Check ID | Pending |
+| Detected Check ID / incident reference | Pending |
+| Actual diagnosis and gateway/Internet/DNS results | Pending |
+| Repair availability | Expected: none; actual result pending |
+| Restore command and output | Pending |
+| Closing Check ID / connectivity results | Pending |
+| Administrator QA task/rule cleanup | Pending |
+| Repair request / command / repair duration | Not applicable to this scenario |
+| Verdict and screenshots/evidence | Pending |
+
+Complete this entry only with the actual test results. A pass requires the expected diagnosis, no unnecessary repair, successful restoration, a healthy closing Check, and confirmed cleanup. If the intended condition is not reproduced, retain that outcome and its state path rather than marking it passed.
+
+## Append later demonstrations here
+
+Complete Demo 005 above when its results are available; use Demo 006 for the next new demonstration afterward. Retain all earlier entries. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
 
 | Field | Fill in for the next demonstration |
 | --- | --- |
