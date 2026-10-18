@@ -1,9 +1,15 @@
 @php
     $laterReadingFinished = (bool) $recovery->afterHealthCheck?->readingFinished();
+    $earlierReadings = $recovery->earlierVerificationChecks();
 @endphp
-@foreach($recovery->earlierVerificationChecks() as $index => $earlier)
-    <article class="repair-request-record verification-reading" data-verification-check-id="{{ $earlier->id }}">
-        <p><b>Earlier automatic reading {{ data_get($earlier->probe_meta, 'recovery_verification.attempt', $index + 1) }}:</b> {{ $earlier->checked_at->format('g:i:s A') }} · {{ $earlier->diagnosis_title ?: $earlier->diagnosis_code }}</p>
+@if($earlierReadings->isNotEmpty())
+<details class="verification-history">
+    <summary>Earlier verification readings ({{ $earlierReadings->count() }})</summary>
+    <p class="quiet">These readings belong to this request. The final measurement is shown in the comparison above.</p>
+    <ol class="verification-list">
+@foreach($earlierReadings as $index => $earlier)
+    <li><details class="repair-request-record verification-reading" data-verification-check-id="{{ $earlier->id }}">
+        <summary>Earlier automatic reading {{ data_get($earlier->probe_meta, 'recovery_verification.attempt', $index + 1) }}: {{ $earlier->checked_at->format('g:i:s A') }} · {{ $earlier->diagnosis_title ?: $earlier->diagnosis_code }}</summary>
         @if(! $earlier->readingFinished() && $laterReadingFinished)
             <p class="reading-retry-note">
                 @if($recovery->verification_status === 'verified')
@@ -28,5 +34,8 @@
         @foreach((array) data_get($earlier->probe_meta, 'errors', []) as $readingError)
             <p class="{{ $laterReadingFinished ? 'quiet' : 'command-error' }}">Reading error: {{ $readingError }}</p>
         @endforeach
-    </article>
+    </details></li>
 @endforeach
+    </ol>
+</details>
+@endif

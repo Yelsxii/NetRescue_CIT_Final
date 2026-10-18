@@ -4,10 +4,13 @@
     {{ $attributes->class(['js-busy-form', 'js-repair-form']) }}
     data-repair-confirmation="{{ $confirmed ? 'reviewed' : ($guidance['is_follow_up'] ? 'required' : 'initial') }}"
     data-repair-title="{{ $guidance['confirmation_title'] }}"
-    data-repair-previous="{{ $guidance['previous_result'] }}"
+    data-repair-previous="{{ $guidance['previous_summary'] }}"
+    data-repair-status="{{ $guidance['previous_status'] }}"
+    data-repair-action-title="{{ $guidance['action_title'] }}"
     data-repair-purpose="{{ $guidance['purpose'] }}"
     data-repair-limitation="{{ $guidance['limitation'] }}"
     data-repair-consequence="{{ $guidance['consequence'] }}"
+    data-repair-attention="{{ $guidance['attention'] }}"
     data-repair-button="{{ $guidance['button_label'] }}"
     data-busy-text="{{ $guidance['busy_text'] }}">
     @csrf

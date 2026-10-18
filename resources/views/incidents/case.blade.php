@@ -1,7 +1,6 @@
 @php
     $story = $incident->story();
     $attempt = $incident->latestRecovery();
-    $repairGuidance = \App\Support\RepairGuidance::for($incident);
     $needsResultCheck = $incident->is_active && $attempt
         && in_array($attempt->verification_status, ['unread', 'adapter_changed'], true);
     $previousAttempts = $attempt
@@ -34,36 +33,11 @@
     </article>
 
     <article class="case-card case-repair-card">
-        <div class="case-card-head">
-            <h2>{{ $attempt ? 'Latest repair request and result' : 'Repair request and result' }}</h2>
-            @if($needsResultCheck)
-                <form method="POST" action="{{ route('incidents.retest', $incident) }}" class="js-busy-form case-repair-action" data-busy-text="Checking this incident's adapter again…">
-                    @csrf
-                    <button class="button button-primary" type="submit">Check result</button>
-                </form>
-            @elseif($incident->canRepair())
-                <x-repair-form :incident="$incident" class="case-repair-action" />
-            @endif
-        </div>
-        <p class="case-fact" data-story-repair>{{ $story['repair'] }}</p>
-        @if($needsResultCheck)
-            <p class="quiet">Check result reads this incident's adapter again without repeating the repair command.</p>
-        @elseif($incident->canRepair())
-            <p class="quiet">{{ $repairGuidance['purpose'] }}</p>
-            <p class="quiet">{{ $repairGuidance['limitation'] }}</p>
-            <p class="quiet">{{ $repairGuidance['consequence'] }}</p>
-            <p class="quiet">Available action: <code>{{ $incident->repairCommand() }}</code></p>
-            <p class="quiet">{{ $repairGuidance['is_follow_up'] ? 'Another attempt is optional and requires confirmation.' : 'Checks first and runs this action only if still needed.' }} Verification is automatic. Recovery is not guaranteed; scheduled checks may stay paused.</p>
-        @elseif($incident->is_active)
-            <p class="quiet">No repair command is available for this condition.</p>
-        @endif
-        @if($incident->is_active && $incident->nextStep())
-            <p class="next-step"><b>Next step:</b> {{ $incident->nextStep() }}</p>
-        @endif
+        <x-repair-guidance :incident="$incident" mode="incident" :needs-result-check="$needsResultCheck" :story-repair="$story['repair']" />
     </article>
 
     <article class="case-card">
-        <h2>{{ $incident->is_active ? 'Current outcome' : ($closingRestatesRepair ? 'Closing check' : 'Resolution observed') }}</h2>
+        <h2>{{ $incident->is_active ? 'Current status' : ($closingRestatesRepair ? 'Verified outcome' : 'Resolution') }}</h2>
         @unless($closingRestatesRepair)
             <p class="case-fact" data-story-resolution>{{ $story['resolution'] }}</p>
         @endunless
@@ -87,79 +61,21 @@
     </article>
 </section>
 @if($attempt)
-    <details class="repair-evidence">
-        <summary>Latest request: measurements and command details</summary>
-        <p class="case-when">Request recorded {{ $attempt->started_at?->format('M j, g:i:s A') }}</p>
-        <p class="quiet">Command: {{ $attempt->executionLabel() }}. Outcome: {{ $attempt->verificationLabel() }}.</p>
-        @if($attempt->command_exit_code !== null)<p class="quiet">Command exit code: {{ $attempt->command_exit_code }}</p>@endif
-        @if($verification = data_get($attempt->afterHealthCheck?->probe_meta, 'recovery_verification'))
-            @if(($verification['retry_policy'] ?? null) === 'reconnect_window')
-                <p class="quiet">Automatic verification: {{ $verification['attempt'] }} readings; reconnect window up to {{ number_format($verification['reconnect_window_seconds'], 0) }} seconds. The repair command was not repeated.</p>
-                <p class="quiet">The window limits retries; a check already running is allowed to finish.</p>
-            @else
-                <p class="quiet">Automatic verification: {{ $verification['attempt'] }} of {{ $verification['maximum_attempts'] }} allowed readings. The repair command was not repeated.</p>
-            @endif
-            @if(($verification['stop_reason'] ?? null) === 'reconnect_window_elapsed')
-                <p class="reading-retry-note">The reconnect window ended before a settled result was obtained. Recovery remains unverified.</p>
-            @endif
-            @if(is_numeric($elapsed = $verification['elapsed_ms'] ?? null))
-                <p class="quiet">Verification elapsed: {{ number_format($elapsed / 1000, 2) }} seconds.</p>
-            @endif
-            @if(is_numeric($allowance = $verification['command_timeout_seconds'] ?? null))
-                <p class="quiet">Command time limit: {{ number_format($allowance, 0) }} seconds.</p>
-            @endif
-            @if(is_numeric($commandMs = $verification['command_ms'] ?? null))
-                <p class="quiet">Command duration: {{ number_format($commandMs / 1000, 2) }} seconds.</p>
-            @endif
-        @endif
-        @foreach(['Before' => $attempt->beforeHealthCheck, 'After' => $attempt->afterHealthCheck] as $stage => $evidence)
-            @if($stage === 'After')
-                @include('incidents.verification-readings', ['recovery' => $attempt])
-            @endif
-            @if($evidence)
-                <p><b>{{ $stage }}:</b> {{ $evidence->checked_at->format('g:i:s A') }} · {{ $evidence->diagnosis_title ?: $evidence->diagnosis_code }} · IPv4 {{ $evidence->local_ip ?: 'None' }} · Gateway {{ $evidence->gateway_ip ?: 'None' }} · {{ $evidence->interface_name ?: 'Unknown adapter' }}</p>
-                @if(is_numeric($duration = data_get($evidence->probe_meta, 'timings_ms.total')))
-                    <p class="quiet">Reading duration: {{ number_format($duration / 1000, 2) }} seconds.</p>
-                @endif
-                @if(filled($windowsStatus = data_get($evidence->probe_meta, 'windows_adapter_status')))
-                    <p class="quiet">Windows adapter status: {{ $windowsStatus }}</p>
-                @endif
-                @if(! $evidence->readingFinished())
-                    @foreach((array) data_get($evidence->probe_meta, 'errors', []) as $readingError)
-                        <p class="command-error">Reading error: {{ $readingError }}</p>
-                    @endforeach
-                @endif
-            @endif
-        @endforeach
-        @if($attempt->error_message)<p class="command-error">{{ $attempt->error_message }}</p>@endif
-        @if($attempt->output_excerpt)<p class="quiet"><b>Stored command output (excerpt)</b></p><pre class="command-output">{{ $attempt->output_excerpt }}</pre>@endif
+    @php($latestResult = \App\Support\RepairGuidance::result($attempt))
+    <details class="repair-evidence latest-request">
+        <summary><span>Latest repair details</span><small>{{ $attempt->action_label }} · {{ $latestResult['status'] }}</small></summary>
+        @include('incidents.repair-request', ['recovery' => $attempt])
     </details>
 @endif
 @if($previousAttempts->isNotEmpty())
     <details class="repair-evidence repair-history">
-        <summary>Previous repair requests ({{ $previousAttempts->count() }})</summary>
+        <summary>Earlier repair attempts ({{ $previousAttempts->count() }})</summary>
         @foreach($previousAttempts as $previous)
-            <article class="repair-request-record" data-recovery-id="{{ $previous->id }}">
-                <p class="case-when"><b>{{ $previous->started_at?->format('M j, g:i:s A') }} · {{ $previous->action_label }}</b></p>
-                <p>{{ $previous->outcomeSummary() }}</p>
-                <p class="quiet">Command: {{ $previous->execution_status === 'pending' || $previous->execution_status === null ? 'Command result not recorded' : $previous->executionLabel() }}. Outcome: {{ $previous->verification_status === 'pending' || $previous->verification_status === null ? 'Verification result not recorded' : $previous->verificationLabel() }}.</p>
-                @if($previous->command_exit_code !== null)<p class="quiet">Command exit code: {{ $previous->command_exit_code }}</p>@endif
-                @foreach(['Before' => $previous->beforeHealthCheck, 'After' => $previous->afterHealthCheck] as $stage => $evidence)
-                    @if($stage === 'After')
-                        @include('incidents.verification-readings', ['recovery' => $previous])
-                    @endif
-                    @if($evidence)
-                        <p><b>{{ $stage }}:</b> {{ $evidence->checked_at->format('M j, g:i:s A') }} · {{ $evidence->diagnosis_title ?: $evidence->diagnosis_code }} · IPv4 {{ $evidence->local_ip ?: 'None' }} · {{ $evidence->interface_name ?: 'Unknown adapter' }}</p>
-                        @if(! $evidence->readingFinished())
-                            @foreach((array) data_get($evidence->probe_meta, 'errors', []) as $readingError)
-                                <p class="command-error">Reading error: {{ $readingError }}</p>
-                            @endforeach
-                        @endif
-                    @endif
-                @endforeach
-                @if($previous->error_message)<p class="command-error">{{ $previous->error_message }}</p>@endif
-                @if($previous->output_excerpt)<p class="quiet"><b>Stored command output (excerpt)</b></p><pre class="command-output">{{ $previous->output_excerpt }}</pre>@endif
-            </article>
+            @php($previousResult = \App\Support\RepairGuidance::result($previous))
+            <details class="repair-request-record">
+                <summary>{{ $previous->action_label }} · {{ $previousResult['status'] }}<small>{{ $previous->started_at?->format('M j, g:i:s A') ?: 'Time not recorded' }}</small></summary>
+                @include('incidents.repair-request', ['recovery' => $previous])
+            </details>
         @endforeach
     </details>
 @endif

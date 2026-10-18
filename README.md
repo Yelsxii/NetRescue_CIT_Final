@@ -37,6 +37,13 @@ computer; run it as Administrator when repairs are needed. Automatic checks
 also depend on the interval and enabled setting. Run Check and Run repair
 remain available when scheduled checks are paused.
 
+Keep the scheduler running for automatic checks; starting only the web server
+does not start monitoring. The header shows **Scheduler not detected** when
+automatic checks are enabled but no recent scheduler tick is available. After
+starting the scheduler, allow up to one minute for its first tick. **Paused**
+means automatic checks are disabled in Settings. Do not start a second
+scheduler if one is already running.
+
 ## Existing installation
 
 Apply the local-only update without replacing .env, the database or storage.

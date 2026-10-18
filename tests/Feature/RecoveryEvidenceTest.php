@@ -149,7 +149,7 @@ class RecoveryEvidenceTest extends TestCase
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('skipped', $result->execution_status);
         $this->assertSame('superseded', $incident->fresh()->resolution_kind);
-        $this->assertStringContainsString('recovery was not confirmed', $incident->fresh()->resolutionLabel());
+        $this->assertStringContainsString('Recovery from this incident was not confirmed.', $incident->fresh()->resolutionLabel());
     }
 
     public function test_existing_healthy_before_and_after_attempt_uses_consistent_honest_text(): void
@@ -302,9 +302,9 @@ class RecoveryEvidenceTest extends TestCase
         $this->assertNull($earlier->fresh()->success);
         $response = $this->withHeaders(['X-Panel' => '1'])->get('/incidents/'.$incident->id);
         $response->assertOk()->assertSeeText('No command was run for this request')
-            ->assertSeeText('Latest repair request and result')->assertSeeText('Previous repair requests (1)')
+            ->assertSeeText('Latest repair request and result')->assertSeeText('Earlier repair attempts (1)')
             ->assertSeeText('Command result not recorded')->assertSee('data-recovery-id="'.$earlier->id.'"', false);
-        $this->assertStringContainsString('latest pre-repair check', $incident->fresh()->resolutionLabel());
+        $this->assertSame('The pre-repair check confirmed that the condition had already cleared. No repair command was run.', $incident->fresh()->resolutionLabel());
     }
 
     public function test_a_later_skipped_request_does_not_hide_the_previous_command_error(): void
@@ -320,8 +320,57 @@ class RecoveryEvidenceTest extends TestCase
         app(RecoveryService::class)->attempt($incident);
         $this->withHeaders(['X-Panel' => '1'])->get('/incidents/'.$incident->id)->assertOk()
             ->assertSeeText('No command was run for this request')
-            ->assertSeeText('Previous repair requests (1)')->assertSeeText('Access is denied (Windows System Error 5).')
-            ->assertSeeText('Command exit code: 1');
+            ->assertSeeText('Earlier repair attempts (1)')->assertSeeText('Access is denied (Windows System Error 5).')
+            ->assertSeeText('Command exit code')->assertSee('data-recovery-id="'.$earlier->id.'"', false);
         $this->assertFalse($earlier->fresh()->success);
+    }
+
+    public function test_request_groups_keep_their_own_comparisons_and_hide_technical_logs_by_default(): void
+    {
+        $before = $this->check('dhcp_issue');
+        $after = $this->check('healthy', ['probe_meta' => [
+            'adapter_state' => 'up', 'probe_states' => ['gateway' => 'passed', 'internet' => 'passed', 'dns' => 'passed'],
+            'recovery_verification' => ['command_ms' => 2600, 'elapsed_ms' => 1500, 'attempt' => 1, 'maximum_attempts' => 3],
+        ]]);
+        $incident = $this->incident($before);
+        $earlier = RecoveryAction::create(['device_id' => $incident->device_id, 'incident_id' => $incident->id,
+            'action_code' => 'renew_dhcp', 'action_label' => 'Renew the address',
+            'before_health_check_id' => $before->id, 'after_health_check_id' => $before->id,
+            'started_at' => now()->subMinutes(2), 'completed_at' => now()->subMinute(),
+            'execution_status' => 'failed', 'verification_status' => 'not_verified', 'success' => false,
+            'command_exit_code' => 1, 'error_message' => 'Access denied fixture']);
+        $latest = RecoveryAction::create(['device_id' => $incident->device_id, 'incident_id' => $incident->id,
+            'action_code' => 'renew_dhcp', 'action_label' => 'Renew the address',
+            'before_health_check_id' => $before->id, 'after_health_check_id' => $after->id,
+            'started_at' => now(), 'completed_at' => now(), 'execution_status' => 'completed',
+            'verification_status' => 'verified', 'success' => true, 'command_exit_code' => 0,
+            'output_excerpt' => 'Stored output fixture']);
+        $stored = [$incident->fresh()->getRawOriginal(), $latest->fresh()->getRawOriginal(), $earlier->fresh()->getRawOriginal()];
+        foreach ([[], ['X-Panel' => '1']] as $headers) {
+            $response = $this->get('/incidents/'.$incident->id, $headers)->assertOk();
+            $document = new \DOMDocument();
+            @$document->loadHTML($response->getContent());
+            $xpath = new \DOMXPath($document);
+            $latestGroup = $xpath->query('//div[@data-recovery-id="'.$latest->id.'"]')->item(0);
+            $olderGroup = $xpath->query('//div[@data-recovery-id="'.$earlier->id.'"]')->item(0);
+            $this->assertNotNull($latestGroup);
+            $this->assertNotNull($olderGroup);
+            $stages = $xpath->query('.//section[@class="reading-stage"]', $latestGroup);
+            $this->assertCount(2, $stages);
+            $this->assertStringContainsString('Before: initial check', $stages->item(0)->textContent);
+            $this->assertStringContainsString('Possible DHCP Configuration Issue', $stages->item(0)->textContent);
+            $this->assertStringContainsString('Not tested', $stages->item(0)->textContent);
+            $this->assertStringContainsString('After: final check', $stages->item(1)->textContent);
+            $this->assertStringContainsString('Network Operational', $stages->item(1)->textContent);
+            $this->assertStringContainsString('Passed', $stages->item(1)->textContent);
+            $this->assertStringContainsString('Access denied fixture', $olderGroup->textContent);
+            $this->assertStringNotContainsString('Access denied fixture', $latestGroup->textContent);
+            $this->assertSame('0', trim($xpath->query('.//dt[text()="Command exit code"]/following-sibling::dd', $latestGroup)->item(0)->textContent));
+            $this->assertSame('1', trim($xpath->query('.//dt[text()="Command exit code"]/following-sibling::dd', $olderGroup)->item(0)->textContent));
+            $this->assertSame(0, $xpath->query('//details[contains(@class,"evidence-technical") or contains(@class,"evidence-output") or contains(@class,"repair-request-record")][@open]')->length);
+            $this->assertStringContainsString('2.60 seconds', $latestGroup->textContent);
+            $this->assertStringContainsString('1.50 seconds', $latestGroup->textContent);
+        }
+        $this->assertSame($stored, [$incident->fresh()->getRawOriginal(), $latest->fresh()->getRawOriginal(), $earlier->fresh()->getRawOriginal()]);
     }
 }

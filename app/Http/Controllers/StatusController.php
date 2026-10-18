@@ -6,10 +6,11 @@ use App\Models\HealthCheck;
 use App\Models\Incident;
 use App\Models\MonitorSetting;
 use App\Models\Device;
+use App\Services\MonitorSchedulerStatus;
 
 class StatusController extends Controller
 {
-    public function __invoke()
+    public function __invoke(MonitorSchedulerStatus $scheduler)
     {
         $host = Device::localHost();
         $latest = HealthCheck::query()->where('device_id', $host->id)->latest('checked_at')->orderByDesc('id')->first();
@@ -23,6 +24,7 @@ class StatusController extends Controller
             'health_status' => $latest?->health_status,
             'diagnosis_title' => $latest?->diagnosis_title,
             'monitoring_enabled' => $settings->enabled,
+            'monitoring' => $scheduler->status($settings),
             'active_incident_id' => $activeIncident?->id,
         ]);
     }

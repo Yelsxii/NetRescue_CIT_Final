@@ -68,4 +68,40 @@ class IncidentProbeEvidenceDisplayTest extends TestCase
         $this->assertStringContainsString('Gateway ping did not answer', $outcome);
         $this->assertStringNotContainsString('external TCP tests failed', $outcome);
     }
+
+    public static function recoveredFocusCases(): iterable
+    {
+        yield 'enabled adapter' => ['adapter_disabled', 'Wi-Fi was enabled.'];
+        yield 'restored network link' => ['adapter_disconnected', 'A network link was available.'];
+        yield 'restored IPv4' => ['ip_configuration_missing', 'IPv4 address 192.168.1.5.'];
+        yield 'restored gateway' => ['gateway_missing', 'default IPv4 gateway 192.168.1.1.'];
+    }
+
+    #[DataProvider('recoveredFocusCases')]
+    public function test_formal_closing_finding_describes_the_recovered_reading(string $code, string $expected): void
+    {
+        $check = new HealthCheck(['diagnosis_code' => 'healthy', 'interface_name' => 'Wi-Fi',
+            'local_ip' => '192.168.1.5', 'gateway_ip' => '192.168.1.1',
+            'probe_meta' => ['adapter_state' => 'up']]);
+        $this->assertStringContainsString($expected, CheckStory::focus($code, $check, 100));
+    }
+
+    public function test_dns_finding_distinguishes_a_failed_lookup_from_a_skipped_lookup(): void
+    {
+        $check = new HealthCheck(['diagnosis_code' => 'dns_failure', 'platform_supported' => true,
+            'dns_operational' => false, 'dns_test_domain' => 'example.com',
+            'probe_meta' => ['probe_states' => ['dns' => 'failed']]]);
+        $this->assertSame('Windows could not resolve example.com.', CheckStory::focus('dns_failure', $check, 100));
+        $check->probe_meta = ['probe_states' => ['dns' => 'skipped']];
+        $this->assertSame('Name resolution was not tested in this reading.', CheckStory::focus('dns_failure', $check, 100));
+    }
+
+    public function test_recovery_without_a_repair_does_not_imply_a_repair_was_recorded(): void
+    {
+        $check = new HealthCheck(['device_id' => 1, 'diagnosis_code' => 'healthy']);
+        $incident = $this->activeIncident('wan_unreachable', $check);
+        $incident->fill(['device_id' => 1, 'status' => 'resolved']);
+        $incident->setRelation('closingHealthCheck', $check);
+        $this->assertSame('A subsequent check confirmed recovery. No repair command was run.', $incident->resolutionLabel());
+    }
 }

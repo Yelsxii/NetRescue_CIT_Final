@@ -16,7 +16,10 @@
     </script>
     <link rel="stylesheet" href="{{ asset('css/app.css') }}">
 </head>
-<body data-latest-check-id="{{ \App\Models\HealthCheck::where('device_id', \App\Models\Device::localHost()->id)->latest('checked_at')->orderByDesc('id')->value('id') ?? '' }}">
+@php
+    $monitorStatus = app(\App\Services\MonitorSchedulerStatus::class)->status(\App\Models\MonitorSetting::current());
+@endphp
+<body data-latest-check-id="{{ \App\Models\HealthCheck::where('device_id', \App\Models\Device::localHost()->id)->latest('checked_at')->orderByDesc('id')->value('id') ?? '' }}" data-monitor-state="{{ $monitorStatus['state'] }}">
 <div class="app-shell" id="appShell">
     <aside class="sidebar" id="sidebar" aria-label="Navigation menu">
         <div class="side-top">
@@ -67,9 +70,8 @@
                     <x-icon name="sun" size="15" class="icon-sun" />
                     <x-icon name="moon" size="15" class="icon-moon" />
                 </button>
-                @php($settingsForHeader = \App\Models\MonitorSetting::current())
-                <span class="monitor-chip {{ $settingsForHeader->enabled ? 'is-on' : 'is-off' }}">
-                    <span></span>{{ $settingsForHeader->enabled ? 'Every '.$settingsForHeader->interval_minutes.' min' : 'Paused' }}
+                <span class="monitor-chip {{ $monitorStatus['state'] === 'ready' ? 'is-on' : 'is-off' }}" title="{{ $monitorStatus['message'] }}">
+                    <span></span>{{ $monitorStatus['label'] }}
                 </span>
             </div>
         </header>
@@ -149,24 +151,35 @@
 </div>
 
 <div class="modal-backdrop" id="recoveryModal" aria-hidden="true">
-    <div class="modal-card repair-confirmation" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle" aria-describedby="recoveryModalPrevious recoveryModalPurpose recoveryModalLimitation recoveryModalConsequence recoveryModalNote" tabindex="-1">
+    <div class="modal-card repair-confirmation" role="dialog" aria-modal="true" aria-labelledby="recoveryModalTitle" aria-describedby="recoveryModalPrevious recoveryModalPurpose recoveryModalConsequence" tabindex="-1">
         <div class="modal-head">
             <div>
-                <span class="eyebrow">Another attempt is optional</span>
+                <span class="eyebrow">Follow-up repair</span>
                 <h2 id="recoveryModalTitle">Review another repair attempt</h2>
             </div>
             <button class="icon-button" type="button" data-close-modal aria-label="Close repair dialog"><x-icon name="close" size="18" /></button>
         </div>
         <div class="modal-body">
-            <div><h3>Previous attempt</h3><p id="recoveryModalPrevious"></p></div>
-            <div><h3>What this attempt tries</h3><p id="recoveryModalPurpose"></p></div>
-            <p class="quiet" id="recoveryModalLimitation"></p>
-            <p class="repair-consequence" id="recoveryModalConsequence"></p>
-            <p class="quiet" id="recoveryModalNote">NetRescue checks first and skips the command if already recovered. Otherwise it tries this action and verifies the result. Recovery is not guaranteed.</p>
-            <div class="modal-actions">
-                <button type="button" class="button button-ghost" data-close-modal>Cancel</button>
-                <button type="button" class="button button-primary" id="recoveryModalConfirm">Confirm this attempt</button>
-            </div>
+            <section class="repair-confirm-previous" aria-label="Previous attempt">
+                <span class="repair-card-eyebrow">Previous attempt</span>
+                <strong id="recoveryModalStatus"></strong>
+                <p id="recoveryModalPrevious"></p>
+            </section>
+            <section class="repair-confirm-step" aria-label="Proposed action">
+                <span class="repair-card-eyebrow">Proposed action</span>
+                <h3 id="recoveryModalAction"></h3>
+                <p id="recoveryModalPurpose"></p>
+            </section>
+            <p class="repair-card-notice" id="recoveryModalConsequence" hidden></p>
+            <details class="repair-card-details" id="recoveryModalDetails">
+                <summary>Limits and verification</summary>
+                <p id="recoveryModalLimitation"></p>
+                <p class="quiet" id="recoveryModalNote">Another attempt is optional. NetRescue checks the current condition first and skips the command if recovery is already detected. Verification is automatic. Recovery is not guaranteed.</p>
+            </details>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="button button-ghost" data-close-modal>Cancel</button>
+            <button type="button" class="button button-primary" id="recoveryModalConfirm">Confirm this attempt</button>
         </div>
     </div>
 </div>

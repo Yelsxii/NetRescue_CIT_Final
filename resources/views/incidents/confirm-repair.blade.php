@@ -5,18 +5,27 @@
 <div class="page-fit incident-page">
     <article class="case-card repair-confirmation-page">
         <h1>{{ $guidance['confirmation_title'] }}</h1>
-        <p class="quiet">The repair options changed or this request needs your confirmation. No repair command ran for this request.</p>
-        <p>{{ $incident->reference }} · {{ $incident->plainProblem() }}</p>
+        <p class="repair-card-notice">The repair options require review. No command was run for this request.</p>
+        <p class="quiet">{{ $incident->reference }} · {{ $incident->plainProblem() }}</p>
         @if($guidance['previous_result'])
-            <h2>Previous attempt</h2>
-            <p>{{ $guidance['previous_result'] }}</p>
+            <section class="repair-confirm-previous">
+                <span class="repair-card-eyebrow">Previous attempt</span>
+                <strong>{{ $guidance['previous_status'] }}</strong>
+                <p>{{ $guidance['previous_summary'] }}</p>
+            </section>
         @endif
         @if($incident->canRepair())
-            <h2>What this attempt tries</h2>
-            <p>{{ $guidance['purpose'] }}</p>
-            <p class="quiet">{{ $guidance['limitation'] }}</p>
-            <p>{{ $guidance['consequence'] }}</p>
-            <p class="quiet">Another attempt is optional. NetRescue checks first, skips the command if already recovered, and verifies afterward. Recovery is not guaranteed.</p>
+            <section class="repair-confirm-step">
+                <span class="repair-card-eyebrow">Proposed action</span>
+                <h2>{{ $guidance['action_title'] }}</h2>
+                <p>{{ $guidance['purpose'] }}</p>
+            </section>
+            @if($guidance['attention'])<p class="repair-card-notice">{{ $guidance['attention'] }}</p>@endif
+            <details class="repair-card-details">
+                <summary>Limits and verification</summary>
+                <p>{{ $guidance['limitation'] }}</p>
+                <p class="quiet">Another attempt is optional. NetRescue checks first, skips the command if already recovered, and verifies afterward. Recovery is not guaranteed.</p>
+            </details>
             <div class="modal-actions">
                 <a class="button button-ghost" href="{{ $returnTo === 'dashboard' ? route('dashboard') : route('incidents.show', $incident) }}">Cancel</a>
                 <x-repair-form :incident="$incident" :return-to="$returnTo" :confirmed="true" />

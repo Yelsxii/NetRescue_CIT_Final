@@ -26,9 +26,12 @@ Loopback requests are checked directly, without hostname lookup. The provided
 launcher binds the web server to 127.0.0.1.
 
 Devices routes and all agent registration/reporting/command routes are removed.
-There are no discovery, enrollment, deployment, heartbeat or remote recovery
-services. The scheduler has one task: netrescue:monitor. It measures this host
-only and honors its automatic-check settings.
+There are no discovery, enrollment, deployment, remote heartbeat or remote
+recovery services. The scheduler runs netrescue:monitor, which measures this
+host only and honors its automatic-check settings. A separate lightweight
+cached tick confirms scheduler availability, including when checks are paused;
+it performs no network measurement. The interface distinguishes an enabled
+setting from a recently observed scheduler tick.
 
 ## Data compatibility
 

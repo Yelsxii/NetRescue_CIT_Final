@@ -253,14 +253,20 @@
             const fields = {
                 recoveryModalTitle: form.dataset.repairTitle,
                 recoveryModalPrevious: form.dataset.repairPrevious,
+                recoveryModalStatus: form.dataset.repairStatus,
+                recoveryModalAction: form.dataset.repairActionTitle,
                 recoveryModalPurpose: form.dataset.repairPurpose,
                 recoveryModalLimitation: form.dataset.repairLimitation,
-                recoveryModalConsequence: form.dataset.repairConsequence,
+                recoveryModalConsequence: form.dataset.repairAttention,
             };
             Object.entries(fields).forEach(([id, value]) => {
                 const element = document.getElementById(id);
                 if (element) element.textContent = value || '';
             });
+            const attention = qs('#recoveryModalConsequence');
+            if (attention) attention.hidden = !form.dataset.repairAttention;
+            const details = qs('#recoveryModalDetails');
+            if (details) details.open = false;
             if (repairConfirmButton) {
                 repairConfirmButton.textContent = form.dataset.repairButton || 'Confirm this attempt';
                 repairConfirmButton.disabled = false;
@@ -294,6 +300,7 @@
     qsa('[data-toast]').forEach((toast) => setTimeout(() => toast.remove(), 6500));
 
     const initialCheckId = Number(document.body.dataset.latestCheckId || 0);
+    const initialMonitorState = document.body.dataset.monitorState;
     if (window.location.pathname === '/') {
         setInterval(async () => {
             // A before/after reading can change /status during repair. Never
@@ -303,7 +310,8 @@
                 const response = await fetch('/status', { headers: { Accept: 'application/json' }, cache: 'no-store' });
                 if (!response.ok) return;
                 const data = await response.json();
-                if (!operationBusy && !modalStack.length && Number(data.latest_check_id || 0) > initialCheckId) window.location.reload();
+                const monitorChanged = initialMonitorState && data.monitoring?.state && data.monitoring.state !== initialMonitorState;
+                if (!operationBusy && !modalStack.length && (Number(data.latest_check_id || 0) > initialCheckId || monitorChanged)) window.location.reload();
             } catch (_) {
                 // Auto-refresh is a convenience. Monitoring continues even if this browser request fails.
             }

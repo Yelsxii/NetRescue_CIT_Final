@@ -95,8 +95,8 @@ class AutomaticRecoveryTest extends TestCase
             ->assertSeeText('Network Operational');
         $this->get('/status')->assertJsonPath('latest_check_id', $action->after_health_check_id);
         $this->assertSame($action->after_health_check_id, Device::localHost()->latestHealthCheck->id);
-        $this->get('/incidents/'.$incident->id)->assertSeeText('Automatic verification: 2 of 3')
-            ->assertSeeText('The repair command was not repeated.');
+        $this->get('/incidents/'.$incident->id)->assertSeeText('Verification readings')
+            ->assertSeeText('of 3 allowed')->assertSeeText('Follow-up readings do not repeat the repair command.');
     }
 
     public function test_reconnecting_address_is_rechecked_automatically_until_a_usable_address_arrives(): void
@@ -326,7 +326,7 @@ class AutomaticRecoveryTest extends TestCase
                 ->assertSeeText('Reading error: The configuration process exceeded the timeout of 20 seconds.')
                 ->assertSeeText('A later automatic reading verified recovery; this warning does not change the verified result.')
                 ->assertSee('<p class="quiet">Reading error:', false)
-                ->assertSeeInOrder(['Before:', 'Earlier automatic reading 1:', 'After:']);
+                ->assertSeeInOrder(['Before: initial check', 'After: final check', 'Earlier automatic reading 1:']);
         }
         $this->assertTrue($action->fresh()->success);
         $this->assertSame(0, $action->fresh()->command_exit_code);

@@ -1,6 +1,9 @@
 @extends('layouts.app', ['title' => 'NetRescue CIT · Dashboard', 'pageTitle' => 'Dashboard'])
 
 @section('content')
+@php
+    $dashboardMonitor = app(\App\Services\MonitorSchedulerStatus::class)->status($settings);
+@endphp
 <div class="page-fit dashboard">
     <header class="dash-head">
         <div class="dash-copy">
@@ -8,7 +11,7 @@
             <p>{{ $summary['state']['message'] }}</p>
         </div>
         <div class="dash-actions">
-            @if($settings->enabled && $nextCheckAt)
+            @if($dashboardMonitor['state'] === 'ready' && $nextCheckAt)
                 <span class="next-chip">Next check <b data-next-check="{{ $nextCheckAt->toIso8601String() }}">…</b></span>
             @endif
             <form action="{{ route('health-checks.store') }}" method="POST" class="js-busy-form" data-busy-text="Checking this computer's network…">
@@ -17,6 +20,10 @@
             </form>
         </div>
     </header>
+
+    @if($dashboardMonitor['state'] === 'scheduler_unconfirmed')
+        <p class="monitor-notice" role="status">{{ $dashboardMonitor['message'] }} Start NetRescue with <strong>START_NETRESCUE.bat</strong> and allow up to one minute for automatic checks to begin.</p>
+    @endif
 
     <section class="stat-row local-stats" aria-label="This computer's monitoring summary">
         <article class="stat-card stat-a">
@@ -131,54 +138,35 @@
                     $shown = $measuredCheck ?: $localLatest;
                 @endphp
                 <div class="now-facts">
-                    <p class="case-fact">{{ $localLatest->diagnosis_title }}</p>
-                    @if(is_numeric($duration = data_get($localLatest->probe_meta, 'timings_ms.total')))
-                        <p class="quiet">Check duration: {{ number_format($duration / 1000, 2) }} seconds.</p>
-                    @endif
+                    <p class="case-fact now-finding">{{ $localLatest->diagnosis_title }}</p>
                     @if($readingIncomplete)
-                        <p class="quiet">{{ $localLatest->diagnosis_summary }}</p>
+                        <p class="repair-card-notice">{{ $localLatest->diagnosis_summary }}</p>
                     @endif
-                    @if($measuredCheck)
-                        <p class="now-line"><span>Address</span> <b>{{ $shown->local_ip ?: 'None' }}</b></p>
-                        <p class="now-line"><span>Gateway</span> <b>{{ $shown->gateway_ip ?: 'None' }}</b></p>
-                        <p class="now-line"><span>Adapter</span> <b>{{ $shown->interface_name ?: 'Unknown' }}</b></p>
-                        <p class="now-line"><span>DNS</span> <b>{{ is_array($shown->dns_servers) && $shown->dns_servers ? implode(', ', $shown->dns_servers) : 'None recorded' }}</b></p>
-                        @if($readingIncomplete)
-                            <p class="quiet">Last completed reading {{ $measuredCheck->checked_at->diffForHumans() }}.</p>
+                    <p class="now-adapter"><span>Adapter</span> <b>{{ $localLatest->interface_name ?: 'Not reported in the latest check' }}</b></p>
+                    <details class="now-network-details">
+                        <summary>Network details</summary>
+                        @if(is_numeric($duration = data_get($localLatest->probe_meta, 'timings_ms.total')))
+                            <p class="quiet">Latest check duration: {{ number_format($duration / 1000, 2) }} seconds.</p>
                         @endif
-                    @else
-                        <p class="quiet">No completed reading is stored yet.</p>
-                    @endif
+                        @if($measuredCheck)
+                            @if($readingIncomplete)
+                                <p class="quiet">Address, gateway and DNS below are from the last completed reading {{ $measuredCheck->checked_at->diffForHumans() }}.</p>
+                                <p class="now-line"><span>Measured adapter</span> <b>{{ $shown->interface_name ?: 'Unknown' }}</b></p>
+                            @endif
+                            <p class="now-line"><span>Address</span> <b>{{ $shown->local_ip ?: 'None' }}</b></p>
+                            <p class="now-line"><span>Gateway</span> <b>{{ $shown->gateway_ip ?: 'None' }}</b></p>
+                            <p class="now-line"><span>DNS</span> <b>{{ is_array($shown->dns_servers) && $shown->dns_servers ? implode(', ', $shown->dns_servers) : 'None recorded' }}</b></p>
+                        @else
+                            <p class="quiet">No completed reading is stored yet.</p>
+                        @endif
+                    </details>
                 </div>
                 @forelse($openHere as $incident)
                     @php
                         $repairAdapter = $incident->latestHealthCheck?->interface_name;
                         $differentAdapter = filled($repairAdapter) && $repairAdapter !== $shown->interface_name;
-                        $lastAttempt = $incident->latestRecovery();
-                        $repairGuidance = \App\Support\RepairGuidance::for($incident);
-                        $unverifiedAttempt = $lastAttempt && in_array($lastAttempt->verification_status, ['pending', 'unread', 'adapter_changed'], true);
                     @endphp
-                    <div class="repair-slot" data-repair-target="{{ $repairAdapter }}">
-                        <strong>{{ $differentAdapter || $unverifiedAttempt ? 'Repair result needs review' : ($lastAttempt ? 'Another repair option' : 'Repair option') }}</strong>
-                        @if($differentAdapter || $unverifiedAttempt)
-                            <span>{{ $incident->reference }} · {{ $repairAdapter ?: 'Unknown adapter' }} · {{ $incident->plainProblem() }}</span>
-                            <a class="button button-primary repair-review" href="{{ route('incidents.show', $incident) }}">Review result</a>
-                            @if($differentAdapter)
-                                <p class="quiet">The latest completed reading is for {{ $shown->interface_name ?: 'another adapter' }}. It does not verify this {{ $repairAdapter }} incident.</p>
-                            @endif
-                            @if($lastAttempt)<p class="quiet">{{ $lastAttempt->outcomeSummary() }}</p>@endif
-                        @elseif($incident->canRepair())
-                            <span>{{ $repairGuidance['purpose'] }}</span>
-                            <x-repair-form :incident="$incident" return-to="dashboard" />
-                            @if($lastAttempt)<p class="quiet">Previous attempt: {{ $lastAttempt->outcomeSummary() }}</p>@endif
-                            <p class="quiet">{{ $repairGuidance['limitation'] }}</p>
-                            <p class="quiet">{{ $repairGuidance['consequence'] }}</p>
-                            <p class="quiet">{{ $repairGuidance['is_follow_up'] ? 'Review the next attempt before confirming it.' : 'NetRescue checks first, tries this action only if still needed, then verifies the result.' }}</p>
-                        @else
-                            <span>No repair command is available for this condition.</span>
-                        @endif
-                        @if(! $differentAdapter && ! $unverifiedAttempt && $incident->nextStep())<p class="quiet">{{ $incident->nextStep() }}</p>@endif
-                    </div>
+                    <x-repair-guidance :incident="$incident" mode="dashboard" :different-adapter="$differentAdapter" :reading-adapter="$shown->interface_name" />
                 @empty
                 @endforelse
             @else

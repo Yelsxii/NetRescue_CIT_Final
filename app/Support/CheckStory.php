@@ -87,17 +87,33 @@ class CheckStory
             'high_latency', 'slow_network' => self::timed('Gateway', $check->gateway_reachable, $check->gateway_latency_ms, $warningMs),
             'dns_failure' => $check->dns_operational
                 ? self::timed('Name lookup', true, $check->dns_latency_ms, $warningMs)
-                : 'Name lookup did not answer'.($check->dns_test_domain ? ' for '.$check->dns_test_domain : '').'.',
+                : ($check->probeWasRun('dns')
+                    ? 'Windows could not resolve'.($check->dns_test_domain ? ' '.$check->dns_test_domain : ' the configured test domain').'.'
+                    : 'Name resolution was not tested in this reading.'),
             'wan_unreachable', 'internet_unreachable' => $check->internet_reachable
                 ? self::timed('Internet', true, $check->internet_latency_ms, $warningMs)
-                : 'The Internet path did not answer.',
+                : ($check->probeWasRun('internet') ? 'Connections to the configured external test targets failed.' : 'External connectivity was not tested in this reading.'),
             'gateway_unreachable' => $check->gateway_reachable
                 ? self::timed('Gateway', true, $check->gateway_latency_ms, $warningMs)
-                : 'The gateway did not answer.',
+                : ($check->probeWasRun('gateway') ? 'The configured gateway did not respond to the connectivity test.' : 'Gateway connectivity was not tested in this reading.'),
             'dhcp_issue' => $check->local_ip
                 ? 'This computer reported address '.$check->local_ip.'.'
                 : 'This computer had no usable network address.',
             'device_offline', 'device_unreachable' => 'This computer was not responding.',
+            'adapter_disabled' => match (data_get($check->probe_meta, 'adapter_state', $check->diagnosis_code === 'healthy' ? 'up' : null)) {
+                'up' => 'Windows reported that '.($check->interface_name ?: 'the network adapter').' was enabled.',
+                'disabled' => 'Windows reported that '.($check->interface_name ?: 'the network adapter').' was disabled.',
+                default => $check->diagnosis_code === 'adapter_disabled' ? 'Windows reported that the network adapter was disabled.' : 'The adapter state was not available in this reading.',
+            },
+            'adapter_disconnected' => $check->diagnosis_code === 'adapter_disconnected'
+                ? 'The adapter was enabled, but no network link was detected.'
+                : ($check->diagnosis_code === 'healthy' ? 'A network link was available.' : $check->diagnosis_summary),
+            'ip_configuration_missing' => Ipv4Address::usable($check->local_ip)
+                ? 'Windows reported IPv4 address '.$check->local_ip.'.'
+                : 'No usable IPv4 address was reported for this adapter.',
+            'gateway_missing' => filled($check->gateway_ip)
+                ? 'Windows reported default IPv4 gateway '.$check->gateway_ip.'.'
+                : 'Windows did not report a default IPv4 gateway for this adapter.',
             default => $check->diagnosis_summary,
         };
     }

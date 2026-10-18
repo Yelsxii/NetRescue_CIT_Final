@@ -23,20 +23,22 @@ class IncidentStory
                 default => 'This condition remains open. '.$incident->plainDetail(),
             };
         } elseif ($incident->resolution_kind === 'already_recovered') {
-            $resolution = 'Recovery observed in the latest pre-repair check; that request ran no command.';
+            $resolution = 'The pre-repair check confirmed that the condition had already cleared. No repair command was run.';
         } elseif ($attempt?->beforeHealthCheck?->diagnosis_code === 'healthy') {
             // Describe old records such as NR-00019 without changing their stored success flag.
             $resolution = 'The connection was already healthy before the repair attempt.';
         } elseif ($incident->resolution_kind === 'superseded') {
-            $resolution = 'Closed because the check recorded a different condition; recovery was not confirmed.';
+            $resolution = 'A subsequent check identified a different condition. Recovery from this incident was not confirmed.';
         } elseif ($attempt?->success) {
             $resolution = 'The follow-up check verified that the target condition cleared after the repair.';
         } elseif ($check?->diagnosis_code === 'healthy') {
-            $resolution = 'Recovery observed by a check; a repair was not verified as the cause.';
+            $resolution = $attempt
+                ? 'A subsequent check confirmed recovery. The recorded repair was not verified as the cause.'
+                : 'A subsequent check confirmed recovery. No repair command was run.';
         } elseif ($check) {
-            $resolution = 'The check recorded a different condition; complete recovery was not confirmed.';
+            $resolution = 'The check identified a different condition. Complete recovery was not confirmed.';
         } else {
-            $resolution = 'This record was closed; an exact closing measurement is not available.';
+            $resolution = 'The incident is closed. An exact closing measurement is not available.';
         }
 
         return ['resolution' => $resolution, 'repair' => $repair];

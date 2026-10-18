@@ -228,7 +228,9 @@ class FaultMatrixTest extends TestCase
         $this->assertFalse($result->success);
         $this->assertNull($incident->fresh()->recovery_action_code);
         $this->assertStringContainsString('manually', $incident->fresh()->recommended_action);
-        $this->get('/incidents/'.$incident->id)->assertSeeText('No repair command is available for this condition.');
+        $this->get('/incidents/'.$incident->id)->assertSeeText('Manual action required')
+            ->assertSeeText('Verify the manually configured DNS servers against the approved settings')
+            ->assertDontSee('action="'.route('incidents.recover', $incident).'"', false);
     }
 
     public function test_malformed_apipa_text_is_not_a_real_dhcp_fallback_address(): void

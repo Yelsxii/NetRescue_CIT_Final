@@ -72,6 +72,9 @@ class RepairGuidanceTest extends TestCase
             $incident = $this->incident($action, $code);
             $guidance = RepairGuidance::for($incident);
             $this->assertSame($label, $guidance['button_label']);
+            $this->assertNotEmpty($guidance['action_title']);
+            $this->assertSame('', $guidance['previous_summary']);
+            $this->assertSame('', $guidance['previous_status']);
             $this->assertStringContainsString($detail, $guidance['limitation'].' '.$guidance['consequence']);
             $this->get('/incidents/'.$incident->id)->assertOk()->assertSeeText($label)
                 ->assertSee('data-repair-confirmation="initial"', false);
@@ -87,7 +90,7 @@ class RepairGuidanceTest extends TestCase
                 ->assertSee('data-repair-confirmation="required"', false)
                 ->assertSee('name="previous_request_id" value="'.$previous->id.'"', false)
                 ->assertSee('data-repair-previous=', false)
-                ->assertSeeText('This attempt did not clear the condition.');
+                ->assertSeeText('The command completed, but the follow-up still found the target condition.');
         }
     }
 
@@ -156,5 +159,133 @@ class RepairGuidanceTest extends TestCase
             ->assertDontSee('class="js-busy-form js-repair-form', false);
         $this->assertStringContainsString('follow-up reading did not finish', $previous->outcomeSummary());
         $this->assertStringNotContainsString('did not clear', $previous->outcomeSummary());
+    }
+
+    public function test_short_previous_results_preserve_the_difference_between_failure_and_missing_evidence(): void
+    {
+        foreach ([
+            ['completed', 'not_verified', 'Condition remains', 'still found the target condition'],
+            ['completed', 'unread', 'Reading incomplete', 'did not finish'],
+            ['completed', 'adapter_changed', 'Adapter changed', 'different adapter'],
+            ['completed', 'changed_condition', 'Condition changed', 'different condition'],
+            ['failed', 'not_verified', 'Command unsuccessful', 'did not complete successfully'],
+            ['failed', 'unread', 'Command unsuccessful', 'reading was incomplete'],
+            ['failed', 'adapter_changed', 'Command unsuccessful', 'different adapter'],
+            ['failed', 'observed_recovery', 'Recovery observed', 'repair was not verified as its cause'],
+            ['skipped', 'already_recovered', 'Already recovered', 'No command was run'],
+            ['skipped', 'unread', 'Reading incomplete', 'pre-repair reading did not finish'],
+            ['skipped', 'adapter_changed', 'Adapter changed', 'Windows selected a different adapter'],
+            ['skipped', 'changed_condition', 'Condition changed', 'pre-repair check found a different condition'],
+        ] as [$execution, $verification, $status, $summary]) {
+            $incident = $this->incident('restart_adapter');
+            $previous = $this->previous($incident, 'renew_dhcp', $execution, $verification);
+            $guidance = RepairGuidance::for($incident);
+            $this->assertSame($status, $guidance['previous_status']);
+            $this->assertStringContainsString($summary, $guidance['previous_summary']);
+            $this->assertSame($previous->outcomeSummary(), $guidance['previous_result']);
+            $this->assertSame($previous->id, $guidance['previous_request_id']);
+            $this->assertTrue($guidance['is_follow_up']);
+            if ($verification !== 'not_verified') {
+                $this->assertStringNotContainsString('still found', $guidance['previous_summary']);
+                $this->assertStringNotContainsString('did not clear', $guidance['previous_summary']);
+            }
+        }
+    }
+
+    public function test_timeout_and_pending_summaries_do_not_claim_command_failure_or_network_failure(): void
+    {
+        foreach (['timed_out', 'failed'] as $execution) {
+            $incident = $this->incident();
+            $previous = $this->previous($incident, 'renew_dhcp', $execution, 'unread');
+            $previous->update(['command_exit_code' => null,
+                'error_message' => 'The process "ipconfig" exceeded the timeout of 60 seconds.']);
+            $guidance = RepairGuidance::for($incident);
+            $this->assertSame('Command timed out', $guidance['previous_status']);
+            $this->assertStringContainsString('completion was not confirmed', $guidance['previous_summary']);
+            $this->assertStringContainsString('reading was incomplete', $guidance['previous_summary']);
+            $this->assertStringNotContainsString('did not complete successfully', $guidance['previous_summary']);
+        }
+
+        foreach (['completed', 'failed', 'pending'] as $execution) {
+            $incident = $this->incident();
+            $previous = $this->previous($incident, 'renew_dhcp', $execution, 'pending');
+            $previous->update(['completed_at' => null]);
+            $guidance = RepairGuidance::for($incident);
+            $this->assertStringContainsString('pending', strtolower($guidance['previous_status']));
+            $this->assertStringNotContainsString('still found', $guidance['previous_summary']);
+            $this->assertSame('Verification pending', $guidance['manual_title']);
+            $this->assertStringContainsString('Wait for the current request', $guidance['manual_step']);
+        }
+    }
+
+    public function test_verified_target_recovery_does_not_claim_that_every_condition_cleared(): void
+    {
+        $incident = $this->incident();
+        $previous = $this->previous($incident, 'renew_dhcp', 'completed', 'verified');
+        $after = $incident->latestHealthCheck->replicate();
+        $after->fill(['diagnosis_code' => 'dns_failure', 'diagnosis_title' => 'DNS Resolution Failure', 'gateway_reachable' => true]);
+        $after->save();
+        $previous->update(['success' => true, 'after_health_check_id' => $after->id]);
+        $guidance = RepairGuidance::for($incident);
+        $this->assertSame('Recovery verified', $guidance['previous_status']);
+        $this->assertSame('The target condition cleared after repair; another condition remains.', $guidance['previous_summary']);
+
+        $previous->beforeHealthCheck->update(['diagnosis_code' => 'healthy']);
+        $guidance = RepairGuidance::for($incident->fresh());
+        $this->assertSame('Already healthy', $guidance['previous_status']);
+        $this->assertStringContainsString('recovery was not established', $guidance['previous_summary']);
+    }
+
+    public function test_manual_handoff_is_specific_without_inventing_an_outage_or_overriding_manual_settings(): void
+    {
+        foreach ([
+            ['gateway_ping_unanswered', 'No repair required', 'Internet and DNS tests passed'],
+            ['high_latency', 'No repair required', 'slow response persists'],
+            ['probe_unavailable', 'Check required', 'does not confirm a network outage'],
+            ['configuration_unreadable', 'Check required', 'does not confirm a network outage'],
+            ['wan_unreachable', 'Manual action required', 'router WAN status and firewall policy'],
+            ['gateway_unreachable', 'Manual action required', 'router connection and firewall policy'],
+            ['static_configuration', 'Manual action required', 'approved manual IPv4 address'],
+            ['adapter_disconnected', 'Manual action required', 'Reconnect the Ethernet cable or join the Wi-Fi network'],
+            ['adapter_unavailable', 'Manual action required', 'adapter installation and driver'],
+            ['adapter_disabled', 'Manual action required', 'administrator permissions'],
+        ] as [$code, $title, $step]) {
+            $guidance = RepairGuidance::for($this->incident('', $code));
+            $this->assertSame($title, $guidance['manual_title']);
+            $this->assertStringContainsString($step, $guidance['manual_step']);
+        }
+
+        $incident = $this->incident('', 'dns_failure');
+        $incident->latestHealthCheck->update(['probe_meta' => ['dns_source' => 'static']]);
+        $guidance = RepairGuidance::for($incident->fresh());
+        $this->assertStringContainsString('manually configured DNS servers', $guidance['manual_step']);
+        $this->assertStringContainsString('approved settings', $guidance['manual_step']);
+        $this->assertStringNotContainsString('automatic', $guidance['manual_step']);
+        $this->assertStringNotContainsString('renew', $guidance['manual_step']);
+    }
+
+    public function test_incomplete_or_different_adapter_follow_up_requires_a_check_instead_of_manual_configuration_changes(): void
+    {
+        foreach (['unread', 'adapter_changed'] as $verification) {
+            $incident = $this->incident('', 'dns_failure');
+            $this->previous($incident, 'flush_dns', 'completed', $verification);
+            $guidance = RepairGuidance::for($incident);
+            $this->assertSame('Check required', $guidance['manual_title']);
+            $this->assertStringContainsString('adapter again', $guidance['manual_step']);
+            $this->assertStringNotContainsString('DNS servers', $guidance['manual_step']);
+        }
+    }
+
+    public function test_attention_emphasizes_only_connection_interruptions(): void
+    {
+        foreach ([['enable_adapter', 'adapter_disabled'], ['flush_dns', 'dns_failure']] as [$action, $code]) {
+            $this->assertSame('', RepairGuidance::for($this->incident($action, $code))['attention']);
+        }
+        $restart = RepairGuidance::for($this->incident('restart_adapter'));
+        $renew = RepairGuidance::for($this->incident('renew_dhcp'));
+        $release = RepairGuidance::for($this->incident('renew_dhcp', 'dhcp_issue'));
+        $this->assertStringContainsString('briefly disconnects Wi-Fi', $restart['attention']);
+        $this->assertStringContainsString('Connectivity may pause', $renew['attention']);
+        $this->assertStringContainsString('temporarily interrupt connectivity', $release['attention']);
     }
 }

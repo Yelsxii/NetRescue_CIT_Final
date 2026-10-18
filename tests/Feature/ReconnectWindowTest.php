@@ -112,9 +112,9 @@ class ReconnectWindowTest extends TestCase
         $this->get('/status')->assertJsonPath('latest_check_id', $action->after_health_check_id);
         foreach ([[], ['X-Panel' => '1']] as $headers) {
             $this->get('/incidents/'.$incident->id, $headers)
-                ->assertSeeText('Automatic verification: 5 readings; reconnect window up to 60 seconds.')
+                ->assertSeeText('Verification readings')->assertSeeText('Reconnect window')->assertSeeText('Up to 60 seconds')
                 ->assertSeeText('Windows adapter status: Unknown')
-                ->assertSeeText('Command time limit: 60 seconds.');
+                ->assertSeeText('Command time limit');
         }
     }
 

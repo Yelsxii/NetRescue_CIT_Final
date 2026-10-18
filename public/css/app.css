@@ -174,6 +174,8 @@ html.theme-light .theme-toggle .icon-moon { display: block; }
 .back-link { display: inline-block; margin-bottom: 2px; color: #7dd3fc; font-size: 12px; font-weight: 700; }
 .next-chip { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .next-chip b { color: white; font-weight: 700; }
+.monitor-notice { color: #fde68a; font-size: 13px; line-height: 1.6; margin: 0 0 16px; }
+html.theme-light .monitor-notice { color: #854d0e; }
 
 .stat-row {
     flex: none; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px;
@@ -381,10 +383,8 @@ html.theme-light .theme-toggle .icon-moon { display: block; }
 .problem-list { display: grid; align-content: start; gap: 6px; }
 .problem-row {
     display: grid; gap: 4px; padding: 12px 14px; border-radius: 14px;
-    background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08); border-left: 3px solid #7dd3fc;
+    background: rgba(255, 255, 255, .04); border: 1px solid rgba(255, 255, 255, .08);
 }
-.problem-row.is-critical { border-left-color: var(--danger); }
-.problem-row.is-moderate, .problem-row.is-low { border-left-color: #7dd3fc; }
 .problem-line { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .problem-line strong { font-size: 13px; white-space: nowrap; }
 .problem-line > span:last-child { color: var(--muted); font-size: 12px; white-space: nowrap; }
@@ -629,15 +629,7 @@ html.theme-light .theme-toggle .icon-moon { display: block; }
 }
 .now-panel .now-line:last-child { border-bottom: 0; }
 .now-panel .now-line > span { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
-.repair-slot { display: grid; gap: 6px; margin-top: 10px; padding-top: 8px; border-top: 1px solid rgba(255,255,255,.08); }
-.now-panel .repair-slot {
-    margin-top: 12px;
-    padding: 10px 12px;
-    border: 0;
-    border-radius: 12px;
-    background: rgba(255, 255, 255, .04);
-}
-.repair-slot span, .check-log-row span { color: var(--muted); font-size: 12px; }
+.check-log-row span { color: var(--muted); font-size: 12px; }
 .check-log { display: grid; }
 .check-log-row { display: grid; grid-template-columns: 72px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 6px 2px; border-bottom: 1px solid rgba(255,255,255,.06); }
 .seen-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
@@ -680,12 +672,10 @@ html.theme-light .theme-toggle .icon-moon { display: block; }
 .record-modal .quiet { color: #9fb0cc; }
 .modal-sm { width: min(420px, 100%); }
 .repair-confirmation { width: min(520px, 100%); }
-.repair-confirmation .modal-body { gap: 14px; line-height: 1.5; }
-.repair-confirmation h3 { margin-bottom: 4px; font-size: 13px; color: var(--muted); }
+.repair-confirmation .modal-body { gap: 18px; line-height: 1.5; }
 .repair-confirmation p, .repair-confirmation-page p { overflow-wrap: anywhere; }
 .repair-confirmation .modal-actions, .repair-confirmation-page .modal-actions { flex-wrap: wrap; justify-content: flex-end; }
 .repair-confirmation .button, .repair-confirmation-page .button { height: auto; min-height: 38px; white-space: normal; }
-.repair-consequence { padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel-2); }
 .repair-confirmation-page { max-width: 700px; display: grid; gap: 16px; }
 .modal-head, .modal-actions { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .modal-head, .modal-body { padding: 20px; }
@@ -937,8 +927,6 @@ html.theme-light .toast { background: #f8fbff; color: #0f172a; }
 .now-line { flex: none; margin: 0; align-items: flex-start; }
 .now-line > span { flex: 0 0 65px; }
 .now-line b { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.repair-slot { flex: none; min-width: 0; }
-.repair-slot span, .repair-slot strong, .repair-slot p { overflow-wrap: anywhere; }
 .workspace .log-panel .table-scroll { overflow: auto; }
 .incident-table { min-width: 980px; }
 .incident-table th, .incident-table td { white-space: normal; overflow: visible; text-overflow: clip; vertical-align: top; overflow-wrap: anywhere; line-height: 1.45; }
@@ -965,25 +953,15 @@ html.theme-light .reading-retry-note { color: #92400e; }
     .record-modal { max-height: calc(100dvh - 24px); }
 }
 
-/* Dashboard may run past the screen. Chart and Now keep their full height; Now scrolls inside that size. */
+/* Dashboard panels keep their content and actions in the page's scroll flow. */
 .dashboard.page-fit { flex: 0 0 auto; min-height: 100%; overflow: visible; }
 .dashboard .workspace { flex: none; min-height: auto; overflow: visible; grid-template-rows: auto auto; align-items: start; }
 .dashboard .workspace .chart-panel { min-height: 410px; height: auto; overflow: visible; }
 .dashboard .chart-fill { flex: 1 0 auto; min-height: auto; overflow: visible; }
 .dashboard .workspace .now-panel {
-    align-self: start; width: 100%; min-height: 410px; max-height: 410px;
-    overflow: auto;
+    align-self: start; width: 100%; min-height: 410px; max-height: none;
+    overflow: visible;
 }
-.dashboard .now-panel .repair-slot {
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center; column-gap: 12px; row-gap: 4px;
-}
-.dashboard .now-panel .repair-slot > strong { grid-column: 1; grid-row: 1; }
-.dashboard .now-panel .repair-slot > span { grid-column: 1; grid-row: 2; }
-.dashboard .now-panel .repair-slot > form { grid-column: 2; grid-row: 1 / span 2; justify-self: end; align-self: center; margin: 0; }
-.dashboard .now-panel .repair-slot > .repair-review { grid-column: 2; grid-row: 1 / span 2; justify-self: end; align-self: center; }
-.dashboard .now-panel .repair-slot > p { grid-column: 1 / -1; }
-.dashboard .now-panel .repair-slot .button { height: 26px; padding: 0 9px; font-size: 12px; border-radius: 8px; }
 .incident-table th { white-space: nowrap; }
 .check-table { min-width: 760px; }
 .check-table td { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; line-height: 1.4; vertical-align: top; }
@@ -1174,7 +1152,7 @@ html.theme-light .field-group .number-stepper input { background: transparent; b
 .record-head h2 { overflow-wrap: anywhere; }
 .content-wrap, .page-fit, .workspace > *, .detail-stack > *, .case-grid > * { min-width: 0; }
 .record-modal { background: var(--panel); }
-.dashboard .now-panel .repair-slot .button, .case-repair-action .button { min-height: 36px; height: auto; }
+.case-repair-action .button { min-height: 36px; height: auto; }
 .pagination { flex-wrap: wrap; }
 .toast-stack { max-width: calc(100vw - 32px); }
 .toast { min-width: 0; overflow-wrap: anywhere; }
@@ -1244,9 +1222,85 @@ html.theme-light .field-group .number-stepper input { background: transparent; b
     .app-clock { padding-inline: 8px; font-size: 11px; }
     .monitor-chip { padding-inline: 9px; font-size: 11px; gap: 6px; }
     .local-stats .stat-card { min-height: 84px; }
-    .dashboard .now-panel .repair-slot { grid-template-columns: minmax(0, 1fr); }
-    .dashboard .now-panel .repair-slot > form,
-    .dashboard .now-panel .repair-slot > .repair-review { grid-column: 1; grid-row: auto; justify-self: start; margin-top: 6px; }
+}
+
+/* Repair guidance: one next step, optional detail, and a separate action footer. */
+.repair-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; line-height: 1.5; }
+.now-panel .repair-card { flex: none; margin-top: 16px; padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel-2); }
+.repair-card p, .repair-card h2, .repair-card h3 { margin: 0; overflow-wrap: anywhere; }
+.repair-card-eyebrow { display: block; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; line-height: 1.5; }
+.repair-card-heading h2, .repair-card-heading h3,
+.record-modal .case-card .repair-card-heading h2 { margin-top: 3px; color: var(--ink); font-size: 16px; font-weight: 700; line-height: 1.35; letter-spacing: -.015em; text-transform: none; }
+.repair-card-summary { color: var(--ink); font-size: 13px; }
+.repair-card-result, .repair-confirm-previous { padding: 11px 13px; border: 1px solid var(--line); border-radius: 10px; background: rgba(125, 211, 252, .065); }
+.repair-card-result strong, .repair-confirm-previous strong { display: block; color: var(--ink); font-size: 13px; line-height: 1.4; }
+.repair-card-result p, .repair-confirm-previous p { margin-top: 4px; color: var(--muted); font-size: 13px; }
+.repair-card-notice { padding: 0; border: 0; background: none; color: #fde68a; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
+.repair-card-notice[hidden] { display: none; }
+.repair-card-details, .now-network-details { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.repair-card-details summary, .now-network-details summary { width: fit-content; max-width: 100%; padding: 3px 0; color: var(--muted); font-weight: 650; cursor: pointer; }
+.repair-card-details[open] summary, .now-network-details[open] summary { margin-bottom: 10px; }
+.repair-card-details p + p { margin-top: 8px; }
+.repair-card-details code { white-space: normal; overflow-wrap: anywhere; }
+.repair-card-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); }
+.repair-card-actions > a:not(.button) { margin-right: auto; font-size: 12px; font-weight: 650; }
+.repair-card-actions form { margin: 0; max-width: 100%; }
+.repair-card-actions .button { min-height: 38px; height: auto; max-width: 100%; padding: 9px 13px; border-radius: 9px; font-size: 12px; line-height: 1.4; white-space: normal; text-align: center; }
+.now-finding { padding: 10px 12px; border: 0; border-radius: 10px; background: var(--panel-2); }
+.now-panel .now-finding { margin: 0; color: var(--ink); font-size: 17px; line-height: 1.4; }
+.now-adapter { color: var(--muted); font-size: 12px; line-height: 1.5; }
+.now-network-details { margin-top: 10px; }
+.now-network-details .now-line { font-size: 12px; }
+.repair-confirmation .modal-head { align-items: flex-start; padding-bottom: 16px; }
+.repair-confirmation .modal-head h2 { margin-top: 4px; font-size: 21px; line-height: 1.3; letter-spacing: -.025em; }
+.repair-confirm-previous .repair-card-eyebrow { margin-bottom: 4px; }
+.repair-confirm-step h3, .repair-confirm-step h2 { margin: 4px 0 6px; color: var(--ink); font-size: 18px; line-height: 1.35; letter-spacing: -.015em; }
+.repair-confirm-step p { color: var(--ink); font-size: 14px; }
+.repair-confirmation .modal-actions { flex: none; margin: 0; padding: 14px 20px; border-top: 1px solid var(--line); }
+.repair-confirmation-page .modal-actions { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--line); }
+html.theme-light .repair-card-notice { color: #854d0e; background: none; }
+html.theme-light .repair-card-result, html.theme-light .repair-confirm-previous { background: #eef5fd; }
+
+/* Evidence is organized by request, with a direct before/after comparison. */
+.repair-evidence > summary > span { display: inline; }
+.repair-evidence > summary > small { display: block; margin: 4px 0 0 17px; color: var(--muted); font-size: 12px; font-weight: 400; }
+.request-evidence { display: grid; gap: 20px; padding-top: 18px; }
+.request-evidence h3 { color: var(--ink); font-size: 13px; font-weight: 700; line-height: 1.4; }
+.request-evidence h4 { color: var(--muted); font-size: 12px; font-weight: 700; line-height: 1.4; }
+.repair-evidence .request-evidence p { margin-top: 5px; }
+.evidence-time { color: var(--muted); font-size: 11px; }
+.request-results { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0; }
+.request-results > div { min-width: 0; }
+.request-results dt, .technical-facts dt { color: var(--muted); font-size: 11px; }
+.request-results dd { margin: 3px 0 0; color: var(--ink); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
+.request-comparison, .request-timing { display: grid; gap: 10px; }
+.reading-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.reading-stage { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.reading-condition { color: var(--ink); font-weight: 650; font-size: 13px; }
+.reading-probes { display: grid; gap: 6px; margin: 12px 0 0; }
+.reading-probes > div, .technical-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.reading-probes dt { color: var(--muted); }
+.reading-probes dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.technical-facts { display: grid; gap: 8px; margin: 12px 0; }
+.technical-facts dd { margin: 0; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.evidence-technical, .evidence-output, .verification-history { padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); }
+.evidence-technical > summary, .evidence-output > summary, .verification-history > summary { color: var(--muted); font-size: 12px; }
+.configuration-comparison { margin-top: 18px; }
+.repair-history > .repair-request-record { margin-top: 14px; }
+.repair-request-record > summary { color: var(--ink); }
+.repair-request-record > summary > small { display: block; margin: 4px 0 0 17px; color: var(--muted); font-size: 11px; font-weight: 400; }
+.verification-list { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 12px; }
+.verification-list .repair-request-record { margin: 0; padding: 0; border: 0; }
+@media (max-width: 600px) {
+    .reading-comparison, .request-results { grid-template-columns: minmax(0, 1fr); }
+    .request-results { gap: 10px; }
+}
+@media (max-width: 400px) {
+    .repair-card-actions { gap: 12px; }
+    .repair-card-actions > form, .repair-card-actions > .button { margin-left: auto; }
+    .repair-confirmation .modal-head, .repair-confirmation .modal-body { padding-inline: 16px; }
+    .repair-confirmation .modal-actions { padding-inline: 16px; }
+    .repair-confirmation .modal-actions .button { flex: 0 1 auto; min-width: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
