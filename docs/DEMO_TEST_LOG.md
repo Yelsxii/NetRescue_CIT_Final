@@ -1,6 +1,6 @@
 # NetRescue running demo test log
 
-This is the running record of demonstrated commands and procedures. Append the next demonstration as Demo 004, then continue numbering. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
+This is the running record of demonstrated commands and procedures. Append the next demonstration as Demo 005, then continue numbering. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
 
 Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requires command completion and successful automatic verification on the same adapter. Record teardown confirmation separately from repair success.
 
@@ -13,6 +13,7 @@ Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requi
 | 001 | 18 October 2026 | Wi-Fi adapter disabled — browser-operated | NR-00056 / request 35 | Verified; exit 0; Network Operational | QA task/rules absent and host connectivity confirmed at 12:35–12:36 PM; separate post-cleanup app Check not captured |
 | 002 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) — automated | NR-00057 / request 36 | Verified renewal; exit 0; Network Operational | Runner printed Restore completed; post-Restore Check 634 healthy |
 | 003 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) — browser-operated | NR-00059 / request 38 | Verified release/renewal; exit 0; Network Operational | Restore completed; no QA tasks/rules; post-Restore browser Check 647 healthy |
+| 004 | 18 October 2026 | Missing default gateway (`GatewayMissing`) — user-reported browser procedure | NR-00062 / request 41 | Verified renewal; exit 0; gateway restored; Network Operational | Saved state confirms Restore; elevated task/rule queries empty and fresh host DNS/TCP pass; separate post-Restore app Check pending |
 
 ## Demo 001 — disabled Wi-Fi adapter repaired successfully
 
@@ -419,9 +420,68 @@ Browser screenshot retained locally as `noipv4-manual-verified-2026-10-18.png` i
 
 **Verdict:** browser-operated NoIpv4 diagnosis, repair, displayed result, saved-state restoration, task/rule cleanup, and a healthy closing browser Check passed. Review incident details after the prompt repair action because the injected condition can recover on its own.
 
+## Demo 004 — missing default gateway repaired successfully
+
+**Result: the user reported Fault 3 succeeded and connectivity was restored. Stored evidence confirms diagnosis and a verified targeted DHCP renewal.** Read-only application inspection at **1:55 PM on 18 October 2026** confirmed **NR-00062**, repair request **41**, and checks **654–657**. Administrator inspection at **1:56 PM** separately confirmed saved-state restoration, no remaining QA tasks/rules, and working host connectivity. No new fault, application Check, repair, or Restore was executed while documenting this result.
+
+### Repeatable manual command and procedure
+
+Use the administrator server/runner setup from Demo 001, keep Automatic checks paused, and require a fresh healthy Check with the previous run restored. From the prepared Administrator runner window:
+
+```powershell
+& $qaRunner @qaOptions -Mode Apply -Fault GatewayMissing
+```
+
+Leave off `-ExerciseApp`. Keep the new StatePath available, then click **Run Check** in NetRescue. Expect **Default Gateway Missing** (`gateway_missing`): Wi-Fi still has a usable IPv4 address, but its IPv4 default gateway is absent. Dependent gateway/Internet/DNS probes are not tested when the prerequisite is missing.
+
+Click **Run repair — Renew the address** once and allow automatic verification to finish. Require a restored gateway and verified recovery on the same adapter. Review the incident details and timings afterward. The runner requires an unchanged DHCP gateway baseline; it refuses ambiguous, manual, persistent, or customized default routes instead of removing them.
+
+After repair, restore this run using its newly printed StatePath and click a closing **Run Check**. The exact restoration command for this recorded run is:
+
+```powershell
+& $qaRunner -Mode Restore -StatePath 'C:\ProgramData\NetRescueQA\77d8f60a426f4ca082bc8056c1fab73b\state.json'
+```
+
+This is a historical command for the completed run; its state already records restoration. Future tests must use their own state paths.
+
+### Confirmed results and timings
+
+All times below are **18 October 2026, Asia/Manila**.
+
+| Stage | Recorded evidence |
+| --- | --- |
+| Healthy baseline | Check 654, 1:50:41 PM; Wi-Fi, IPv4 `192.168.1.5`, gateway `192.168.1.1`; healthy |
+| QA state / rollback | Run `77d8f60a426f4ca082bc8056c1fab73b`; created 1:50:42.641 PM; safety rollback due 2:00:42.641 PM |
+| Browser diagnosis | Check 655, 1:52:06 PM; `gateway_missing`; IPv4 retained, gateway absent; NR-00062 |
+| Repair precheck | Check 656, 1:52:36 PM; same adapter and missing gateway; dependent probes skipped |
+| Repair | Request 41, `renew_dhcp`; command completed, exit 0; success true; verification `verified` |
+| Automatic follow-up | Check 657, 1:52:43 PM; healthy; IPv4 `192.168.1.5`, gateway `192.168.1.1`; gateway/Internet/DNS passed |
+| Incident closure | NR-00062 resolved at 1:52:43 PM as `verified_repair` |
+| Repair record completed | 1:52:44 PM |
+| Saved-state restoration | `RestoredAt` 1:54:26.963 PM, before the safety rollback deadline |
+| Later Administrator inspection | 1:56:14 PM; no QA tasks or firewall rules; usable DHCP IPv4 retained |
+| Fresh host connectivity after Restore | `www.google.com` answered; TCP to `1.1.1.1:443` connected |
+
+| Measurement | Recorded value / scope |
+| --- | --- |
+| Detection reading | 9.821 s, Check 655 |
+| Repair precheck | 1.895 s, Check 656 |
+| Command phase | **0.914 s** (`command_ms` 914.12) |
+| Automatic verification phase | **6.330 s** (`elapsed_ms` 6,330.21) |
+| Automatic after reading | 6.297 s; included in verification |
+| Verification attempts | 1 of 3 allowed; settled; no retained earlier readings or reading errors |
+| Repair-record timestamp span | Approximately 8 s, 1:52:36–1:52:44 PM; excludes precheck and full HTTP overhead |
+| Command time limit | 35 s; a configured limit, not elapsed time |
+
+A complete browser click-to-response measurement and a screenshot were not supplied for this run. Its latest stored application reading at documentation time was still Check 657, the automatic follow-up before Restore. **A separate post-Restore application Check remains to be captured**; use a fresh browser Run Check before Fault 4. The later saved-state and host checks confirm restoration and connectivity without inventing a closing application Check ID.
+
+The previous `NoIpv4` run `74c879a762b14e128f69badfe18dd897` also had a saved `RestoredAt` before this gateway injection. It is separate history and is not credited as the Fault 3 result. Automatic checks remained paused; the documentation work did not change settings, `.env`, the database, or existing history.
+
+**Verdict:** Fault 3 diagnosis and verified repair passed; saved-state restoration, QA cleanup, and subsequent host connectivity are confirmed. Capture a fresh application Check before the next injection to complete the closing application evidence.
+
 ## Append the next demonstration here
 
-Add Demo 004 after the next new successful procedure; retain all earlier entries. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
+Add Demo 005 after the next new successful procedure; retain all earlier entries. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
 
 | Field | Fill in for the next demonstration |
 | --- | --- |

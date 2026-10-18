@@ -146,6 +146,10 @@ The **browser-operated repeat passed** on October 18: incident **NR-00059**, req
 - **Pass:** the display explains the ping limitation without treating it as a proven Internet outage.
 - **Next:** Restore removes the QA rule; run a closing Check.
 
+For a manual demo, first complete Fault 3's Restore and click a fresh **Run Check** to confirm Network Operational. Run the command above without `-ExerciseApp`, retain its newly printed StatePath, then click **Run Check** yourself. Expect **Gateway Ping Unanswered; Internet Available**, with the gateway ping unanswered but Internet and DNS passing. Open the incident and confirm that no repair is offered. Browsing can remain usable throughout this test.
+
+Use the exact saved-state Restore command in section 5 to remove this run's temporary ping-block rule. Click **Run Check** again and require gateway, Internet, and DNS success, then confirm no QA tasks/rules remain. Recovery after removing the rule is observed by a Check; there is no application repair command or repair duration for this scenario. If Internet or DNS also fails, retain the actual result and restore before retrying rather than counting the expected ping-only scenario as passed.
+
 ### E. Gateway and external targets blocked — ineffective repair must stay unverified
 
 ```powershell
