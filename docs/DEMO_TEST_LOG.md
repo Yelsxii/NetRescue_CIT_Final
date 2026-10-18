@@ -9,6 +9,7 @@ Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requi
 | Demo | Date | Scenario | Stored incident / repair | Repair result | Teardown confirmation |
 | --- | --- | --- | --- | --- | --- |
 | 001 | 18 October 2026 | Wi-Fi adapter disabled | NR-00056 / request 35 | Verified; exit 0; Network Operational | QA task/rules absent and host connectivity confirmed at 12:35–12:36 PM; separate post-cleanup app Check not captured |
+| 002 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) | NR-00057 / request 36 | Verified renewal; exit 0; Network Operational | Runner printed Restore completed; post-Restore Check 634 healthy |
 
 ## Demo 001 — disabled Wi-Fi adapter repaired successfully
 
@@ -195,9 +196,142 @@ No new application Check, repair, injection, or Restore was executed during this
 
 **Verdict:** repair demonstration passed; QA cleanup and subsequent host connectivity are confirmed. A dedicated post-cleanup application Check and terminal Restore output were not captured, so this entry does not claim a complete formal acceptance evidence set.
 
+## Demo 002 — missing DHCP IPv4 repaired successfully
+
+**Result: successful diagnosis, verified DHCP renewal, restoration, and a healthy closing application Check.**
+
+The user supplied the successful automated run's terminal output. Read-only queries of the stored application evidence at **12:58 PM on 18 October 2026** confirmed incident **NR-00057**, repair request **36**, detected Check **631**, pre-repair Check **632**, verified follow-up **633**, and post-Restore closing Check **634**. This entry was documented without executing another fault, repair, Check, or Restore.
+
+### Proven command and demo setup
+
+Keep the NetRescue PHP server running in **Administrator PowerShell window 1**, MySQL running, and Automatic checks paused. Use one active IPv4 path. The setup and administrator check in Demo 001 apply here too.
+
+In **Administrator PowerShell window 2**, the reusable sequence is:
+
+```powershell
+Set-Location C:\xampp\htdocs\NetRescue_CIT_Final
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+$qaRunner = '.\tools\qa\Invoke-NetRescueFault.ps1'
+$qaOptions = @{
+    InterfaceAlias = 'Wi-Fi'
+    PhpPath        = 'C:\xampp\php\php.exe'
+    BaseUrl        = 'http://127.0.0.1:8000'
+}
+
+& $qaRunner @qaOptions -Mode Apply -Fault NoIpv4 -ExerciseApp
+```
+
+Require the previous QA run to be restored before invoking this command. The runner checks a fresh healthy baseline, arms its default 10-minute watchdog, releases Wi-Fi's DHCP IPv4 lease, immediately proceeds to diagnosis, requests one eligible repair, restores in `finally`, and records a closing Check. It normally finishes and restores well before the watchdog deadline.
+
+This mode uses the normal application Check and Repair routes. The runner starts those requests automatically; no browser click is needed to initiate them. The stored Check source still reads `manual` for baseline, detection, and the closing Check because those use the same on-demand route as **Run Check**. Repair precheck/follow-up use `recovery_before` and `recovery_after`.
+
+For a presentation, run the command, then open the retained incident and show its detected condition, exact repair result, before/after readings, and closed status. This run records the backend and rendered-response evidence; a screenshot of the browser presentation was not supplied for this entry.
+
+### Exact successful terminal output
+
+```text
+Rollback armed. StatePath: C:\ProgramData\NetRescueQA\18fd7d27141446eda9c4897619bb4b8c\state.json
+Applied NoIpv4 to Wi-Fi. Open http://127.0.0.1:8000 to observe the incident.
+Renew the address completed; the follow-up check verified that the target condition cleared.
+Restored QA changes for Wi-Fi. Run NetRescue Check to verify connectivity; rollback command completion alone is not proof.
+Closing diagnosis: healthy. Evidence: C:\ProgramData\NetRescueQA\18fd7d27141446eda9c4897619bb4b8c
+```
+
+The closing line follows the runner's actual post-Restore Check. Together with the stored verified repair, this establishes more than command completion alone.
+
+### Recorded sequence and expected results
+
+All times are on **18 October 2026, Asia/Manila**.
+
+| Stage | Check / time | Recorded condition |
+| --- | --- | --- |
+| Fresh baseline | 630 / 12:56:06 PM | Wi-Fi, usable IPv4 `192.168.1.5`, gateway `192.168.1.1`, healthy |
+| Fault detected | 631 / 12:56:11 PM | Wi-Fi remained Up with DHCP; IPv4 and gateway absent; `ip_configuration_missing` |
+| Repair precheck | 632 / 12:56:14 PM | Same Wi-Fi adapter; IPv4 and gateway still absent; fault confirmed before repair |
+| Automatic follow-up | 633 / 12:56:18 PM | IPv4 and gateway returned; gateway/Internet/DNS passed; healthy |
+| After Restore | 634 / 12:56:25 PM | Healthy, gateway/Internet/DNS passed; no active incident at evidence capture |
+
+The gateway, Internet, and DNS probes in checks 631 and 632 were **skipped** because usable IPv4 configuration was missing. Their stored false boolean fields do not represent three independently measured probe failures; `probe_states` records the actual skipped states.
+
+| Repair evidence | Recorded result |
+| --- | --- |
+| Incident / diagnosis | NR-00057 / `ip_configuration_missing` — IPv4 Configuration Missing |
+| Incident opened / resolved | 12:56:11 PM / 12:56:18 PM |
+| Incident status / resolution kind | `resolved` (Closed) / `verified_repair` |
+| Repair request / action | 36 / `renew_dhcp` — Renew the address |
+| Command | Targeted `ipconfig.exe /renew Wi-Fi` |
+| Command status / exit code | `completed` / `0` |
+| Verification / success | `verified` / `true` |
+| Verification policy | 1 of 3 allowed readings; settled; no earlier retained readings or reading errors |
+| Automatic after Check | 633: gateway 2.00 ms, Internet 99.71 ms, DNS answered in 237.11 ms |
+| Closing Check | 634: gateway 3.50 ms, Internet 17.67 ms, DNS answered in 288.37 ms |
+
+DNS answered successfully in both readings but exceeded the configured 100 ms display-warning threshold. This remains a speed warning, not a failed lookup or a failed IPv4 repair.
+
+### Measured timings
+
+| Measurement | Recorded value | Scope |
+| --- | ---: | --- |
+| Initial fault-detection reading | 1.638 s | Check 631's total reading duration |
+| Repair precheck reading | 0.650 s | Check 632's total reading duration; before the repair record's started timestamp |
+| Complete command phase | 2.726 s | `command_ms` 2,726.20; includes process overhead |
+| Automatic verification phase | 1.803 s | `elapsed_ms` 1,803.38 |
+| Automatic after reading | 1.789 s | Check 633's reading duration; already included in verification |
+| Repair-record timestamp span | Approximately 4 s | 12:56:14–12:56:18, second-resolution timestamps; excludes precheck and HTTP overhead |
+| Closing reading | 2.140 s | Check 634's total reading duration, after Restore |
+| Command time limit | 35 s | Configured maximum, not the actual duration |
+
+These phase timings are read from the stored checks and repair record. The runner records HTTP repair-request timing in `http-timings.json` under the protected run directory; that file was not read by the documentation process. No browser click-to-response duration is claimed. Do not add the after-reading duration to verification again.
+
+### Restore and teardown
+
+Run directory and evidence:
+
+```text
+C:\ProgramData\NetRescueQA\18fd7d27141446eda9c4897619bb4b8c\
+```
+
+For this successful invocation, `-ExerciseApp` already executed Restore and a healthy closing Check. **An extra Restore command is not required merely to complete the sequence shown above.** If cleanup needs to be retried for this exact run, its idempotent saved-state command is:
+
+```powershell
+& $qaRunner -Mode Restore -StatePath 'C:\ProgramData\NetRescueQA\18fd7d27141446eda9c4897619bb4b8c\state.json'
+```
+
+Future repetitions receive a new state path. The runner's Restore requests removal of the rollback task after restoration. A separate Administrator-terminal task/rule listing was not supplied for this entry; retain one if completing the full acceptance worksheet or before another injection:
+
+```powershell
+Get-ScheduledTask -TaskName 'NetRescueQA-*' -ErrorAction SilentlyContinue |
+    Select-Object TaskName, State
+
+Get-NetFirewallRule -Name 'NetRescueQA-*' -ErrorAction SilentlyContinue |
+    Select-Object Name, Enabled
+```
+
+Expect no matching QA entries. Perform these checks from the Administrator runner window; results from a non-elevated process may not reveal protected tasks. This NoIpv4 test creates no firewall block.
+
+### Earlier attempts retained as context
+
+- An earlier attempt could not reach the stopped PHP server on port 8000. It failed before injection and was not a fault test pass.
+- The browser-driven run `6a2e551c72b648019da27f3bf0cf30c0` printed that NoIpv4 was applied, and a second injection was correctly refused while its rollback was armed. The later observed check 629 was healthy with a usable DHCP IPv4 address. That attempt did not demonstrate a captured missing-address diagnosis or a DHCP repair. Its exact reason for returning healthy was not established; no automatic-reacquisition or watchdog explanation is asserted.
+- The successful run `18fd7d27141446eda9c4897619bb4b8c` used `-ExerciseApp` to capture the actual missing-address condition and verified renewal before restoration. The earlier attempt is not counted as this success.
+
+### Demonstration verdict
+
+- [x] A fresh healthy baseline was recorded.
+- [x] Missing IPv4 and gateway were detected while Wi-Fi remained Up.
+- [x] The repair precheck independently confirmed that the same fault persisted.
+- [x] Targeted DHCP renewal completed with exit code 0.
+- [x] Automatic verification confirmed recovery on Wi-Fi; incident closed as verified repair.
+- [x] Restore completion was printed, followed by healthy closing Check 634.
+- [ ] Separate Administrator-terminal task/rule listing not captured for this entry.
+- [ ] Restore the previous Automatic checks setting when the demonstration session ends.
+
+**Verdict:** Demo 002's diagnosis, repair, automatic verification, restoration, and closing connectivity Check passed. Administrative task-list evidence and a browser presentation screenshot can be added separately; neither is invented here.
+
 ## Append the next demonstration here
 
-Add a new entry after each new successful procedure; do not overwrite Demo 001. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
+Add Demo 003 after the next new successful procedure; retain Demo 001 and Demo 002. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
 
 | Field | Fill in for the next demonstration |
 | --- | --- |

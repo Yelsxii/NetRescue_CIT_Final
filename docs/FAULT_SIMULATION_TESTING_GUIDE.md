@@ -99,6 +99,14 @@ If a fault disappears before your diagnosis check, record **not reproduced** and
 - **Pass:** verification confirms a usable IPv4 address and connectivity. An APIPA address is not proof of recovery.
 - **Next:** Restore using section 5, then run a closing Check.
 
+For the proven October 18 demo procedure, use automated capture so the runner diagnoses the condition directly after release:
+
+```powershell
+& $qaRunner @qaOptions -Mode Apply -Fault NoIpv4 -ExerciseApp
+```
+
+This mode also requests one eligible repair, restores automatically, and performs the closing Check. See [Demo 002](DEMO_TEST_LOG.md#demo-002--missing-dhcp-ipv4-repaired-successfully) for the successful run's exact results. Plain `Apply` performs a healthy baseline before injection but leaves the later browser Check to you; an unchanged healthy screen alone does not show whether the missing-address condition was captured. If it is not observed, record **not reproduced**, restore that run, and retain its evidence. No cause for an unexpectedly healthy result should be assumed without measurements.
+
 ### C. Missing default gateway — renewal should restore the route
 
 ```powershell
