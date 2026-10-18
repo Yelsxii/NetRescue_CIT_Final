@@ -1,15 +1,17 @@
 # NetRescue running demo test log
 
-This is the running record of demonstrated commands and procedures. Append new demonstrations as Demo 002, Demo 003, and so on. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
+This is the running record of demonstrated commands and procedures. Append the next demonstration as Demo 003, then continue numbering. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
 
 Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requires command completion and successful automatic verification on the same adapter. Record teardown confirmation separately from repair success.
+
+**Preferred live demo procedure:** inject one fault in PowerShell without `-ExerciseApp`, click **Run Check** in the browser, inspect the incident, click **Run repair** once if offered, and let the application verify it. Restore the QA run, then click a closing **Run Check** and confirm task/rule cleanup. The runner's prerequisite baseline Check and safety rollback still run automatically. Demo 001 used the browser procedure; Demo 002 below retains an automated success. **A successful browser-operated NoIpv4 repeat has not yet been recorded.**
 
 ## Demonstration index
 
 | Demo | Date | Scenario | Stored incident / repair | Repair result | Teardown confirmation |
 | --- | --- | --- | --- | --- | --- |
-| 001 | 18 October 2026 | Wi-Fi adapter disabled | NR-00056 / request 35 | Verified; exit 0; Network Operational | QA task/rules absent and host connectivity confirmed at 12:35–12:36 PM; separate post-cleanup app Check not captured |
-| 002 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) | NR-00057 / request 36 | Verified renewal; exit 0; Network Operational | Runner printed Restore completed; post-Restore Check 634 healthy |
+| 001 | 18 October 2026 | Wi-Fi adapter disabled — browser-operated | NR-00056 / request 35 | Verified; exit 0; Network Operational | QA task/rules absent and host connectivity confirmed at 12:35–12:36 PM; separate post-cleanup app Check not captured |
+| 002 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) — automated | NR-00057 / request 36 | Verified renewal; exit 0; Network Operational | Runner printed Restore completed; post-Restore Check 634 healthy |
 
 ## Demo 001 — disabled Wi-Fi adapter repaired successfully
 
@@ -196,17 +198,17 @@ No new application Check, repair, injection, or Restore was executed during this
 
 **Verdict:** repair demonstration passed; QA cleanup and subsequent host connectivity are confirmed. A dedicated post-cleanup application Check and terminal Restore output were not captured, so this entry does not claim a complete formal acceptance evidence set.
 
-## Demo 002 — missing DHCP IPv4 repaired successfully
+## Demo 002 — missing DHCP IPv4 repaired successfully (automated run)
 
-**Result: successful diagnosis, verified DHCP renewal, restoration, and a healthy closing application Check.**
+**Historical automated result: successful diagnosis, verified DHCP renewal, restoration, and a healthy closing application Check. This was not a browser-operated demonstration.**
 
 The user supplied the successful automated run's terminal output. Read-only queries of the stored application evidence at **12:58 PM on 18 October 2026** confirmed incident **NR-00057**, repair request **36**, detected Check **631**, pre-repair Check **632**, verified follow-up **633**, and post-Restore closing Check **634**. This entry was documented without executing another fault, repair, Check, or Restore.
 
-### Proven command and demo setup
+### Historical automated command and setup
 
 Keep the NetRescue PHP server running in **Administrator PowerShell window 1**, MySQL running, and Automatic checks paused. Use one active IPv4 path. The setup and administrator check in Demo 001 apply here too.
 
-In **Administrator PowerShell window 2**, the reusable sequence is:
+In **Administrator PowerShell window 2**, the successful automated run used this sequence. It is retained as evidence of what actually ran, rather than the procedure for the next manual demo:
 
 ```powershell
 Set-Location C:\xampp\htdocs\NetRescue_CIT_Final
@@ -226,7 +228,7 @@ Require the previous QA run to be restored before invoking this command. The run
 
 This mode uses the normal application Check and Repair routes. The runner starts those requests automatically; no browser click is needed to initiate them. The stored Check source still reads `manual` for baseline, detection, and the closing Check because those use the same on-demand route as **Run Check**. Repair precheck/follow-up use `recovery_before` and `recovery_after`.
 
-For a presentation, run the command, then open the retained incident and show its detected condition, exact repair result, before/after readings, and closed status. This run records the backend and rendered-response evidence; a screenshot of the browser presentation was not supplied for this entry.
+This run records backend and rendered-response evidence; a screenshot of a browser presentation was not supplied. For the next live demonstration, use the manual NoIpv4 procedure in [section 4B of the testing guide](FAULT_SIMULATION_TESTING_GUIDE.md#b-missing-dhcp-ipv4-address--renewal-should-recover-it): omit `-ExerciseApp`, then click **Run Check** and **Run repair** yourself. Record that repeat separately after it succeeds; retain this automated result and its original IDs.
 
 ### Exact successful terminal output
 
@@ -316,7 +318,7 @@ Expect no matching QA entries. Perform these checks from the Administrator runne
 - The browser-driven run `6a2e551c72b648019da27f3bf0cf30c0` printed that NoIpv4 was applied, and a second injection was correctly refused while its rollback was armed. The later observed check 629 was healthy with a usable DHCP IPv4 address. That attempt did not demonstrate a captured missing-address diagnosis or a DHCP repair. Its exact reason for returning healthy was not established; no automatic-reacquisition or watchdog explanation is asserted.
 - The successful run `18fd7d27141446eda9c4897619bb4b8c` used `-ExerciseApp` to capture the actual missing-address condition and verified renewal before restoration. The earlier attempt is not counted as this success.
 
-### Demonstration verdict
+### Automated run verdict
 
 - [x] A fresh healthy baseline was recorded.
 - [x] Missing IPv4 and gateway were detected while Wi-Fi remained Up.
@@ -324,10 +326,11 @@ Expect no matching QA entries. Perform these checks from the Administrator runne
 - [x] Targeted DHCP renewal completed with exit code 0.
 - [x] Automatic verification confirmed recovery on Wi-Fi; incident closed as verified repair.
 - [x] Restore completion was printed, followed by healthy closing Check 634.
+- [ ] Successful browser-operated NoIpv4 repeat pending; use a new run/state path and record its own evidence.
 - [ ] Separate Administrator-terminal task/rule listing not captured for this entry.
 - [ ] Restore the previous Automatic checks setting when the demonstration session ends.
 
-**Verdict:** Demo 002's diagnosis, repair, automatic verification, restoration, and closing connectivity Check passed. Administrative task-list evidence and a browser presentation screenshot can be added separately; neither is invented here.
+**Verdict:** Demo 002's automated diagnosis, repair, verification, restoration, and closing connectivity Check passed. Administrative task-list evidence was not captured. A browser-operated NoIpv4 repeat remains pending and is not counted as a manual demo pass.
 
 ## Append the next demonstration here
 
@@ -336,6 +339,7 @@ Add Demo 003 after the next new successful procedure; retain Demo 001 and Demo 0
 | Field | Fill in for the next demonstration |
 | --- | --- |
 | Demo number / date / scenario | |
+| Execution mode: browser-operated or automated | |
 | Administrator server and runner confirmed? | |
 | Exact successful setup and injection commands | |
 | Run ID and StatePath | |
