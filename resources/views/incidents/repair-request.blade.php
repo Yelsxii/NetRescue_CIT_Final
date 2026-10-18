@@ -56,7 +56,7 @@
         @if(($verification['stop_reason'] ?? null) === 'reconnect_window_elapsed')<p class="reading-retry-note">The reconnect window ended before a settled result was obtained. Recovery remains unverified.</p>@endif
         <div class="reading-comparison configuration-comparison">
             @foreach(['Before' => $recovery->beforeHealthCheck, 'After' => $recovery->afterHealthCheck] as $stage => $measurement)
-                <section>
+                <section class="configuration-stage">
                     <h4>{{ $stage }} configuration</h4>
                     @if($measurement)
                         <dl class="technical-facts">

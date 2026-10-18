@@ -54,20 +54,18 @@
     @endif
 
     @if($hasDetails)
-        <details class="repair-card-details">
-            <summary>{{ $canRepair ? 'Action details' : 'Result details' }}</summary>
+        <section class="repair-card-details repair-card-context" aria-label="{{ $canRepair ? 'Action details' : 'Result details' }}">
             @if($canRepair)
                 <p>{{ $guidance['limitation'] }}</p>
                 <p>NetRescue checks the condition first, runs this action only if needed, and verifies the result automatically. Recovery is not guaranteed.</p>
                 @if($mode === 'incident')
                     <p>Command: <code>{{ $incident->repairCommand() }}</code></p>
-                    <p>Scheduled checks may remain paused.</p>
                 @endif
             @endif
             @if(filled($storyRepair))
                 <p data-story-repair>{{ $storyRepair }}</p>
             @endif
-        </details>
+        </section>
     @endif
 
     @if($reviewResult || $needsResultCheck || $canRepair || $mode === 'dashboard')

@@ -143,8 +143,7 @@
                         <p class="repair-card-notice">{{ $localLatest->diagnosis_summary }}</p>
                     @endif
                     <p class="now-adapter"><span>Adapter</span> <b>{{ $localLatest->interface_name ?: 'Not reported in the latest check' }}</b></p>
-                    <details class="now-network-details">
-                        <summary>Network details</summary>
+                    <section class="now-network-details" aria-label="Network details">
                         @if(is_numeric($duration = data_get($localLatest->probe_meta, 'timings_ms.total')))
                             <p class="quiet">Latest check duration: {{ number_format($duration / 1000, 2) }} seconds.</p>
                         @endif
@@ -159,7 +158,7 @@
                         @else
                             <p class="quiet">No completed reading is stored yet.</p>
                         @endif
-                    </details>
+                    </section>
                 </div>
                 @forelse($openHere as $incident)
                     @php

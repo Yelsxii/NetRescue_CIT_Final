@@ -89,3 +89,13 @@ The live dashboard displayed **Every 1 min**, **This computer is connected**, an
 Final validation: **173 tests, 1,510 assertions passed** against SQLite in memory with mocked network boundaries. This includes missing/stale/future/malformed scheduler ticks, paused checks, interval gates, status JSON and dashboard states. JavaScript syntax and scoped whitespace checks passed. A separate read-only review found no confirmed UI or monitoring regression. Browser checks verified the missing-scheduler message in both themes at 320 pixels and the live responding state. The live screenshot is retained locally as `automatic-monitoring-live.png`.
 
 Preservation was checked against a fresh 9:41 PM baseline, after the user's intervening manual checks/settings changes. All 620 pre-existing health-check rows, 59 incidents, 46 repair requests and the enabled one-minute settings retained matching raw-row digests. Normal automatic checks were appended; the device's latest status was updated by monitoring. `.env` retained SHA-256 `42A83834DFE747DE1C06143AD33FF0C446C9CF308A4F6E2188454C27DAEBA168`. No network settings, fault injection, repair, database reset, migration or history deletion was performed during this investigation. Existing unrelated working-tree changes and runtime files are retained and excluded from the commit.
+
+## Visible guidance and compact technical configuration
+
+Following the user's layout review, the Now panel displays network configuration and repair guidance directly, without an expander. Incident repair-result text is also visible directly. The action remains in its bottom-right footer, routine notes retain plain colored text, and cards have no left accent bar. The follow-up confirmation behavior is unchanged.
+
+Technical values now align beside their labels in a bounded grid instead of the opposite edge of the incident panel. Before and after configuration have matching bordered sections with a divider beneath each heading. On phones, these sections stack and each technical value sits beneath its label. Missing command codes and absent measurements retain their explicit recorded meanings.
+
+- Existing relevant feature tests passed: **70 tests, 909 assertions**, with SQLite in memory and isolated compiled views. No new tests were needed for this presentation-only change.
+- Production templates rendered all 14 synthetic fault/result fixtures. Browser checks verified direct visibility, 1440-pixel desktop layout and 375-pixel phone layout in both themes; checked layouts had no document-level horizontal overflow.
+- Example screenshots: `now-visible-repair-dark.png` and `technical-config-compact-dark.png`. These are fixture previews, with no live fault, repair or Check request performed.

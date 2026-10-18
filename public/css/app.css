@@ -1224,7 +1224,7 @@ html.theme-light .field-group .number-stepper input { background: transparent; b
     .local-stats .stat-card { min-height: 84px; }
 }
 
-/* Repair guidance: one next step, optional detail, and a separate action footer. */
+/* Repair guidance stays visible above a separate action footer. */
 .repair-card { display: flex; flex-direction: column; gap: 12px; min-width: 0; line-height: 1.5; }
 .now-panel .repair-card { flex: none; margin-top: 16px; padding: 15px; border: 1px solid var(--line); border-radius: 14px; background: var(--panel-2); }
 .repair-card p, .repair-card h2, .repair-card h3 { margin: 0; overflow-wrap: anywhere; }
@@ -1238,8 +1238,9 @@ html.theme-light .field-group .number-stepper input { background: transparent; b
 .repair-card-notice { padding: 0; border: 0; background: none; color: #fde68a; font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
 .repair-card-notice[hidden] { display: none; }
 .repair-card-details, .now-network-details { color: var(--muted); font-size: 12px; line-height: 1.5; }
-.repair-card-details summary, .now-network-details summary { width: fit-content; max-width: 100%; padding: 3px 0; color: var(--muted); font-weight: 650; cursor: pointer; }
-.repair-card-details[open] summary, .now-network-details[open] summary { margin-bottom: 10px; }
+.repair-card-details summary { width: fit-content; max-width: 100%; padding: 3px 0; color: var(--muted); font-weight: 650; cursor: pointer; }
+.repair-card-details[open] summary { margin-bottom: 10px; }
+.repair-card-context { padding-top: 10px; border-top: 1px solid var(--line); }
 .repair-card-details p + p { margin-top: 8px; }
 .repair-card-details code { white-space: normal; overflow-wrap: anywhere; }
 .repair-card-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-top: auto; padding-top: 12px; border-top: 1px solid var(--line); }
@@ -1275,17 +1276,20 @@ html.theme-light .repair-card-result, html.theme-light .repair-confirm-previous 
 .request-results dd { margin: 3px 0 0; color: var(--ink); font-size: 13px; font-weight: 650; overflow-wrap: anywhere; }
 .request-comparison, .request-timing { display: grid; gap: 10px; }
 .reading-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.reading-stage { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
+.reading-stage, .configuration-stage { min-width: 0; padding: 12px; border: 1px solid var(--line); border-radius: 10px; }
 .reading-condition { color: var(--ink); font-weight: 650; font-size: 13px; }
 .reading-probes { display: grid; gap: 6px; margin: 12px 0 0; }
-.reading-probes > div, .technical-facts > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.reading-probes > div { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .reading-probes dt { color: var(--muted); }
 .reading-probes dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
-.technical-facts { display: grid; gap: 8px; margin: 12px 0; }
-.technical-facts dd { margin: 0; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.technical-facts { display: grid; gap: 10px; max-width: 520px; margin: 12px 0; }
+.technical-facts > div { display: grid; grid-template-columns: minmax(0, 150px) minmax(0, 1fr); align-items: baseline; gap: 4px 16px; }
+.technical-facts dd { margin: 0; color: var(--ink); text-align: left; overflow-wrap: anywhere; min-width: 0; }
 .evidence-technical, .evidence-output, .verification-history { padding-top: 12px; border-top: 1px solid var(--line); color: var(--muted); }
 .evidence-technical > summary, .evidence-output > summary, .verification-history > summary { color: var(--muted); font-size: 12px; }
 .configuration-comparison { margin-top: 18px; }
+.configuration-stage h4 { color: var(--ink); padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.configuration-stage .technical-facts { margin-bottom: 0; }
 .repair-history > .repair-request-record { margin-top: 14px; }
 .repair-request-record > summary { color: var(--ink); }
 .repair-request-record > summary > small { display: block; margin: 4px 0 0 17px; color: var(--muted); font-size: 11px; font-weight: 400; }
@@ -1294,6 +1298,7 @@ html.theme-light .repair-card-result, html.theme-light .repair-confirm-previous 
 @media (max-width: 600px) {
     .reading-comparison, .request-results { grid-template-columns: minmax(0, 1fr); }
     .request-results { gap: 10px; }
+    .technical-facts > div { grid-template-columns: minmax(0, 1fr); gap: 3px; }
 }
 @media (max-width: 400px) {
     .repair-card-actions { gap: 12px; }
