@@ -7,7 +7,8 @@ $restore = Join-Path $qa 'Restore-NetRescueFault.ps1'
 $tokens = $null; $errors = $null
 $ast = [Management.Automation.Language.Parser]::ParseFile($runner, [ref]$tokens, [ref]$errors)
 if ($errors.Count) { throw ($errors | Out-String) }
-foreach ($name in @('Add-QABlock', 'Apply-QAFault', 'Invoke-AppAction', 'Assert-QAGatewayRoutes')) {
+foreach ($name in @('Add-QABlock', 'Apply-QAFault', 'Invoke-AppAction', 'Assert-QAGatewayRoutes',
+    'Get-QAIpv4Snapshot', 'Assert-QANoIpv4Baseline', 'Invoke-TargetDhcpRelease', 'Invoke-QANoIpv4Fault')) {
     $node = $ast.Find({ param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -eq $name }, $true)
     if (-not $node) { throw ('Production function missing: ' + $name) }
     . ([scriptblock]::Create($node.Extent.Text))
@@ -61,6 +62,111 @@ $adapter = [pscustomobject]@{ Name = 'Wi-Fi'; InterfaceIndex = 9; InterfaceGuid 
 $routes = @([pscustomobject]@{ NextHop = '192.168.1.1'; RouteMetric = 10; InterfaceIndex = 9 })
 $targets = @('1.1.1.1', '8.8.8.8')
 $script:qaState = @{ TaskName = 'NetRescueQA-' + ('a' * 32); FirewallRuleNames = @('NetRescueQA-' + ('a' * 32) + '-block') }
+
+# NoIpv4 uses fixture-only snapshot and native-command boundaries. Keep the
+# production orchestration/assertion functions, but never run real ipconfig.
+function New-FixtureIpv4Snapshot {
+    [pscustomobject]@{
+        CapturedAt = '2026-10-18T05:00:00.0000000Z'
+        InterfaceAlias = $adapter.Name
+        AdapterGuid = [string]$adapter.InterfaceGuid
+        AdapterState = 'Up'
+        DhcpEnabled = $true
+        Addresses = @([pscustomobject]@{ IPAddress = '192.168.1.5'; PrefixOrigin = 'Dhcp'; AddressState = 'Preferred' })
+        UsableAddresses = @('192.168.1.5')
+        GatewayAddresses = @('192.168.1.1')
+    }
+}
+$noIpv4Baseline = New-FixtureIpv4Snapshot
+Assert-QANoIpv4Baseline $noIpv4Baseline
+Assert-Test $true 'NoIpv4 accepts one usable DHCP-origin IPv4 on the Up DHCP adapter.'
+foreach ($case in @('ManualPrimary', 'ManualSecondary', 'ManualApipaSecondary', 'ExtraDhcpAddress', 'DhcpDisabled', 'AdapterDown', 'NoUsableAddress', 'MissingAddressEvidence')) {
+    $candidate = New-FixtureIpv4Snapshot
+    switch ($case) {
+        'ManualPrimary' { $candidate.Addresses[0].PrefixOrigin = 'Manual' }
+        'ManualSecondary' {
+            $candidate.Addresses += [pscustomobject]@{ IPAddress = '192.168.1.6'; PrefixOrigin = 'Manual'; AddressState = 'Preferred' }
+            $candidate.UsableAddresses += '192.168.1.6'
+        }
+        'ManualApipaSecondary' {
+            $candidate.Addresses += [pscustomobject]@{ IPAddress = '169.254.1.2'; PrefixOrigin = 'Manual'; AddressState = 'Preferred' }
+        }
+        'ExtraDhcpAddress' {
+            $candidate.Addresses += [pscustomobject]@{ IPAddress = '192.168.1.6'; PrefixOrigin = 'Dhcp'; AddressState = 'Preferred' }
+            $candidate.UsableAddresses += '192.168.1.6'
+        }
+        'DhcpDisabled' { $candidate.DhcpEnabled = $false }
+        'AdapterDown' { $candidate.AdapterState = 'Disconnected' }
+        'NoUsableAddress' { $candidate.Addresses = @(); $candidate.UsableAddresses = @() }
+        'MissingAddressEvidence' { $candidate.Addresses = @() }
+    }
+    $caught = $false
+    try { Assert-QANoIpv4Baseline $candidate } catch { $caught = $true }
+    Assert-Test $caught ('NoIpv4 refuses an unsafe or ambiguous baseline before release: ' + $case)
+}
+function Invoke-TargetDhcpRelease([string]$Alias) {
+    $global:qaCalls += @{ Kind = 'release'; Target = $Alias }
+    return $script:qaReleaseResult
+}
+function Get-QAIpv4Snapshot($Adapter) {
+    $global:qaCalls += @{ Kind = 'ipv4-snapshot'; Target = $Adapter.Name; Guid = [string]$Adapter.InterfaceGuid }
+    return $script:qaAfterReleaseSnapshot
+}
+$noIpv4Directory = Join-Path ([IO.Path]::GetTempPath()) ('nr-noipv4-fixture-' + [guid]::NewGuid().ToString('N'))
+$null = New-Item -ItemType Directory -Path $noIpv4Directory
+try {
+    foreach ($case in @('Missing', 'Apipa', 'StillUsable', 'DhcpDisabled', 'AdapterDown', 'ReleaseFailed')) {
+        $caseDirectory = Join-Path $noIpv4Directory $case
+        $null = New-Item -ItemType Directory -Path $caseDirectory
+        $script:qaRunDirectory = $caseDirectory
+        $script:qaReleaseResult = [pscustomobject]@{ ExitCode = 0; Output = 'Fixture targeted release output'; ElapsedMs = 12 }
+        $script:qaAfterReleaseSnapshot = New-FixtureIpv4Snapshot
+        $script:qaAfterReleaseSnapshot.Addresses = @()
+        $script:qaAfterReleaseSnapshot.UsableAddresses = @()
+        $script:qaAfterReleaseSnapshot.GatewayAddresses = @()
+        switch ($case) {
+            'Apipa' {
+                $script:qaAfterReleaseSnapshot.Addresses = @([pscustomobject]@{
+                    IPAddress = '169.254.1.2'; PrefixOrigin = 'WellKnown'; AddressState = 'Preferred'
+                })
+            }
+            'StillUsable' { $script:qaAfterReleaseSnapshot = New-FixtureIpv4Snapshot }
+            'DhcpDisabled' { $script:qaAfterReleaseSnapshot.DhcpEnabled = $false }
+            'AdapterDown' { $script:qaAfterReleaseSnapshot.AdapterState = 'Disconnected' }
+            'ReleaseFailed' {
+                $script:qaReleaseResult.ExitCode = 5
+                $script:qaReleaseResult.Output = 'Fixture release failed: Access is denied.'
+            }
+        }
+        $Fault = 'NoIpv4'; $global:qaCalls = @(); $caught = $false; $failureMessage = ''
+        try { Apply-QAFault $adapter $routes $targets } catch { $caught = $true; $failureMessage = $_.Exception.Message }
+        $releaseCalls = @($global:qaCalls | Where-Object { $_.Kind -eq 'release' })
+        $snapshotCalls = @($global:qaCalls | Where-Object { $_.Kind -eq 'ipv4-snapshot' })
+        Assert-Test ($releaseCalls.Count -eq 1 -and $releaseCalls[0].Target -eq $adapter.Name) ('NoIpv4 releases only the selected adapter exactly once: ' + $case)
+        Assert-Test ($snapshotCalls.Count -eq 1 -and $snapshotCalls[0].Target -eq $adapter.Name -and $snapshotCalls[0].Guid -eq [string]$adapter.InterfaceGuid) ('NoIpv4 reads the selected hardware after release: ' + $case)
+        $releaseEvidence = Get-Content -LiteralPath (Join-Path $caseDirectory 'noipv4-release.json') -Raw | ConvertFrom-Json
+        $snapshotEvidence = Get-Content -LiteralPath (Join-Path $caseDirectory 'noipv4-after-release.json') -Raw | ConvertFrom-Json
+        Assert-Test ($releaseEvidence.ExitCode -eq $script:qaReleaseResult.ExitCode -and $releaseEvidence.Output -eq $script:qaReleaseResult.Output -and $releaseEvidence.ElapsedMs -eq 12) ('NoIpv4 preserves the native release status, output, and timing: ' + $case)
+        Assert-Test ($snapshotEvidence.AdapterGuid -eq [string]$adapter.InterfaceGuid -and $snapshotEvidence.InterfaceAlias -eq $adapter.Name -and @($snapshotEvidence.UsableAddresses).Count -eq @($script:qaAfterReleaseSnapshot.UsableAddresses).Count) ('NoIpv4 preserves the observed post-release configuration: ' + $case)
+        if ($case -in @('Missing', 'Apipa')) {
+            Assert-Test (-not $caught) ('NoIpv4 accepts the reproduced missing/APIPA condition: ' + $case)
+        } elseif ($case -eq 'ReleaseFailed') {
+            Assert-Test $caught 'A nonzero targeted release exit cannot be reported as a successful injection.'
+        } else {
+            Assert-Test ($caught -and $failureMessage -match 'not reproduced') ('A zero exit without the intended fault is rejected as not reproduced: ' + $case)
+        }
+        Assert-Test (@($global:qaCalls | Where-Object { $_.Kind -notin @('release', 'ipv4-snapshot') }).Count -eq 0) ('NoIpv4 does not change DNS, manual addressing, adapter state, or repeatedly hold the fault: ' + $case)
+    }
+} finally {
+    $resolvedNoIpv4Directory = [IO.Path]::GetFullPath($noIpv4Directory)
+    $resolvedTemporaryRoot = [IO.Path]::GetFullPath([IO.Path]::GetTempPath()).TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar
+    if (-not $resolvedNoIpv4Directory.StartsWith($resolvedTemporaryRoot, [StringComparison]::OrdinalIgnoreCase) -or
+        [IO.Path]::GetFileName($resolvedNoIpv4Directory) -notmatch '^nr-noipv4-fixture-[a-f0-9]{32}$') {
+        throw 'Refusing to clean an unexpected NoIpv4 fixture directory.'
+    }
+    Remove-Item -LiteralPath $resolvedNoIpv4Directory -Recurse -Force
+}
+
 foreach ($case in @('AdapterDisabled', 'GatewayMissing', 'DnsServer', 'GatewayPingBlocked', 'WanTargetsBlocked', 'GatewayTestsBlocked')) {
     $Fault = $case; $global:qaCalls = @()
     Apply-QAFault $adapter $routes $targets

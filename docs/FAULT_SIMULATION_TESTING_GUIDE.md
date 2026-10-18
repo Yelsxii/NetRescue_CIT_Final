@@ -2,7 +2,7 @@
 
 Use this file to test diagnosis, repair, displayed results, and restored connectivity on the Windows laptop.
 
-**Run one fault at a time: healthy check → inject → Run Check → inspect → one offered repair → Restore → healthy check.**
+**Run one fault at a time: healthy check → inject → Run Check → one offered repair → review results → Restore → healthy check.**
 
 **This is a browser-operated demo:** use PowerShell for fault setup and restoration, then click **Run Check** and **Run repair** yourself in NetRescue, just like the disabled-adapter demo. Leave `-ExerciseApp` off every demo injection command; it would perform those application actions for you. The application's automatic verification after your repair click and the runner's safety rollback remain enabled.
 
@@ -65,7 +65,7 @@ Inspect displays the adapter/DHCP/DNS configuration and latest application evide
 ## 3. Follow this cycle for every fault
 
 1. Choose **one** command from section 4. The runner also performs a fresh baseline Check before injection and refuses an unhealthy baseline.
-2. Read the printed message **Rollback armed. StatePath: ...**. Copy that run's exact `state.json` path before continuing.
+2. Read the printed message **Rollback armed. StatePath: ...** and keep that run's exact `state.json` path available. For the time-sensitive NoIpv4 demo, keep the terminal open and copy it after the repair rather than delaying the browser actions.
 3. In NetRescue, click **Run Check** after the runner prints **Applied**. Confirm the new reading's time is after injection; the previously displayed healthy baseline is not a diagnosis of the injected fault. Compare the diagnosis and available repair with the scenario's expected result below.
 4. If a repair is offered, request it **once**, let verification finish, and inspect the displayed result and incident details. Record the incident ID and timings.
 5. Run **Restore** using section 5, even if NetRescue already repaired the condition. This also clears the QA task.
@@ -101,19 +101,25 @@ If a fresh diagnosis check does not observe the injected fault, record **not rep
 - **Pass:** verification confirms a usable IPv4 address and connectivity. An APIPA address is not proof of recovery.
 - **Next:** Restore using section 5, then run a closing Check.
 
+**Timing matters on this laptop.** During the October 18 investigation, release genuinely removed IPv4, Windows then assigned an APIPA address, and a usable DHCP address returned about **35 seconds** after the confirmed release, before any NetRescue repair command. That explains why a later fresh Check can correctly report Network Operational. The 10-minute QA watchdog was still armed; it did not cause that early recovery. This observed interval is not a guaranteed window. Keep the page ready and perform the two browser actions promptly; review the incident details after repair.
+
+The updated runner now requires a simple DHCP baseline, saves the native release result as `noipv4-release.json`, and saves a fresh adapter snapshot as `noipv4-after-release.json`. It prints **NoIpv4 confirmed ... no usable IPv4 address** before **Applied**. If release leaves a usable IPv4 address, or the adapter no longer has the intended Up/DHCP state, it reports **not reproduced** and attempts restoration instead of claiming a successful injection. Additional manual IPv4 addresses are refused before release.
+
 **Manual NoIpv4 demonstration — follow these steps:**
 
 1. Confirm the previous run is restored. Keep the administrator PHP server running, Automatic checks paused, and the local NetRescue page open. Click **Run Check** and confirm **Network Operational**.
-2. Run the injection command above **without `-ExerciseApp`**. Copy the newly printed **StatePath**. It saves the original settings and arms rollback before releasing the address. It does not request a post-injection diagnosis or repair.
-3. Return to NetRescue and promptly click **Run Check**. Confirm this is a new reading after injection. Expect **IPv4 Configuration Missing** (`ip_configuration_missing`), or a DHCP/APIPA diagnosis (`dhcp_issue`). Wi-Fi can still show **Up** while lacking usable IPv4 configuration. Gateway/Internet/DNS probes may be shown as skipped until configuration is usable.
-4. Open the new incident. Show the detected condition, then click **Run repair** once for **Renew the address**. Do not renew the address yourself in PowerShell during the repair demonstration. Let NetRescue finish its automatic follow-up checks.
-5. Show command completion, exit code **0**, and **verified** recovery on Wi-Fi. The follow-up must show a usable IPv4 address, gateway, and successful connectivity. A Closed label alone does not prove that the repair caused recovery. Record the incident reference, repair request, and displayed timings.
+2. Run the injection command above **without `-ExerciseApp`**. Wait for **NoIpv4 confirmed** and **Applied NoIpv4**. Keep the terminal open with its new **StatePath** visible. It saves the original settings and arms rollback before releasing the address. It does not request a post-injection diagnosis or repair.
+3. Immediately return to NetRescue and click **Run Check**; aim to start within a few seconds of **Applied**. Confirm this is a new reading after injection. Expect **IPv4 Configuration Missing** (`ip_configuration_missing`), or **Possible DHCP Configuration Issue** (`dhcp_issue`) if Windows has assigned APIPA. Wi-Fi can still show **Up** while lacking usable IPv4 configuration. Gateway/Internet/DNS probes should be shown as not tested when the address prerequisite fails.
+4. As soon as the result appears, click the offered **Run repair** on the dashboard once. Depending on the diagnosis, its label is **Renew the address** or **Release and renew the address**. Let NetRescue finish its automatic follow-up checks. Save the detailed incident walkthrough until after this step, so Windows has less time to recover before the repair precheck.
+5. Now open the incident and show command completion, exit code **0**, and **verified** recovery on Wi-Fi. The follow-up must show a usable IPv4 address, gateway, and successful connectivity. A Closed label alone does not prove that the repair caused recovery. Record the incident reference, repair request, and displayed timings.
 6. Restore this run using its own saved path and section 5. This clears the QA rollback even if NetRescue already renewed the address. If cleanup has already completed, follow the confirmation procedure in section 5 instead.
 7. Click **Run Check** again and require **Network Operational**, successful gateway/Internet/DNS results, and no remaining QA tasks or rules. Record that closing Check separately.
 
 If the screen still says **Network Operational**, first distinguish the old baseline from the result of your new **Run Check**. If the new reading is healthy, stop this attempt and restore its exact state path; do not inject again while rollback is armed. Preserve that result as **not reproduced** for investigation.
 
-The October 18 success recorded as Demo 002 in the [running log](DEMO_TEST_LOG.md) used automated application requests. Its evidence is retained, but a successful **browser-operated NoIpv4 repeat is still pending**. Add the manual repeat's own check/incident IDs and results after it succeeds.
+If the repair reports **Already recovered — no command run**, its precheck found usable configuration before executing a command. Retain that as observed recovery, restore the QA run, and repeat the prepared sequence. Do not count it as a successful repair demonstration. Do not run `ipconfig /renew` yourself before the application's repair, or repeatedly release the address while the repair is running.
+
+The **browser-operated repeat passed** on October 18: incident **NR-00059**, request **38**, detected Check **644**, repair precheck **645**, verified follow-up **646**, and post-Restore closing Check **647**. See Demo 003 in the [running log](DEMO_TEST_LOG.md) for the procedure, timings, and cleanup. Demo 002 remains the earlier automated result.
 
 ### C. Missing default gateway — renewal should restore the route
 
@@ -221,7 +227,7 @@ Each injection stores its state and baseline in:
 C:\ProgramData\NetRescueQA\<run-id>\
 ```
 
-For this browser-operated guide, record your browser observations/screenshots, check IDs, incident reference, and displayed repair timings yourself. The runner saves the state and baseline but does not automatically capture your later browser actions. DNS restoration records `dns-restored.json` after successful verification. Historical automated runs using `-ExerciseApp` additionally save detected/restored evidence, rendered pages, repair evidence when requested, and `http-timings.json`.
+For this browser-operated guide, record your browser observations/screenshots, check IDs, incident reference, and displayed repair timings yourself. The runner saves the state and baseline but does not automatically capture your later browser actions. NoIpv4 additionally saves its release output/timing and immediate adapter snapshot; its state includes the safety rollback deadline. DNS restoration records `dns-restored.json` after successful verification. Historical automated runs using `-ExerciseApp` additionally save detected/restored evidence, rendered pages, repair evidence when requested, and `http-timings.json`.
 
 HTTP repair duration includes the precheck, command, verification, and response. Command duration is only one part of that total. Historical mean repair-request timings on this laptop were 21.527 s for adapter enable, 6.923 s for released IPv4 renewal, and 4.632 s for missing-gateway renewal. These are comparison points, not deadlines or guarantees.
 

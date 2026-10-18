@@ -1,10 +1,10 @@
 # NetRescue running demo test log
 
-This is the running record of demonstrated commands and procedures. Append the next demonstration as Demo 003, then continue numbering. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
+This is the running record of demonstrated commands and procedures. Append the next demonstration as Demo 004, then continue numbering. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
 
 Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requires command completion and successful automatic verification on the same adapter. Record teardown confirmation separately from repair success.
 
-**Preferred live demo procedure:** inject one fault in PowerShell without `-ExerciseApp`, click **Run Check** in the browser, inspect the incident, click **Run repair** once if offered, and let the application verify it. Restore the QA run, then click a closing **Run Check** and confirm task/rule cleanup. The runner's prerequisite baseline Check and safety rollback still run automatically. Demo 001 used the browser procedure; Demo 002 below retains an automated success. **A successful browser-operated NoIpv4 repeat has not yet been recorded.**
+**Preferred live demo procedure:** inject one fault in PowerShell without `-ExerciseApp`, click **Run Check** in the browser, click **Run repair** once if offered, and let the application verify it. For time-sensitive NoIpv4, request repair promptly from the dashboard and inspect the detailed incident afterward. Restore the QA run, then click a closing **Run Check** and confirm task/rule cleanup. The runner's prerequisite baseline Check and safety rollback still run automatically. Demos 001 and 003 used the browser procedure; Demo 002 retains an automated success.
 
 ## Demonstration index
 
@@ -12,6 +12,7 @@ Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requi
 | --- | --- | --- | --- | --- | --- |
 | 001 | 18 October 2026 | Wi-Fi adapter disabled — browser-operated | NR-00056 / request 35 | Verified; exit 0; Network Operational | QA task/rules absent and host connectivity confirmed at 12:35–12:36 PM; separate post-cleanup app Check not captured |
 | 002 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) — automated | NR-00057 / request 36 | Verified renewal; exit 0; Network Operational | Runner printed Restore completed; post-Restore Check 634 healthy |
+| 003 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) — browser-operated | NR-00059 / request 38 | Verified release/renewal; exit 0; Network Operational | Restore completed; no QA tasks/rules; post-Restore browser Check 647 healthy |
 
 ## Demo 001 — disabled Wi-Fi adapter repaired successfully
 
@@ -326,15 +327,101 @@ Expect no matching QA entries. Perform these checks from the Administrator runne
 - [x] Targeted DHCP renewal completed with exit code 0.
 - [x] Automatic verification confirmed recovery on Wi-Fi; incident closed as verified repair.
 - [x] Restore completion was printed, followed by healthy closing Check 634.
-- [ ] Successful browser-operated NoIpv4 repeat pending; use a new run/state path and record its own evidence.
+- [x] A later browser-operated NoIpv4 repeat is recorded separately as Demo 003; this automated entry's original evidence is retained.
 - [ ] Separate Administrator-terminal task/rule listing not captured for this entry.
 - [ ] Restore the previous Automatic checks setting when the demonstration session ends.
 
-**Verdict:** Demo 002's automated diagnosis, repair, verification, restoration, and closing connectivity Check passed. Administrative task-list evidence was not captured. A browser-operated NoIpv4 repeat remains pending and is not counted as a manual demo pass.
+**Verdict:** Demo 002's automated diagnosis, repair, verification, restoration, and closing connectivity Check passed. Administrative task-list evidence was not captured for this run. The later browser-operated NoIpv4 pass is recorded separately below.
+
+## Demo 003 — NoIpv4 detected and repaired through the browser
+
+**Result: the operator clicked Run Check and Run repair; stored evidence and the incident display confirm verified recovery.** The runner used plain `Apply`, without `-ExerciseApp`. A temporary observation helper sampled adapter state and requested saved-state Restore after the browser work; it did not initiate diagnosis or repair. The reusable procedure below needs only the normal runner and browser.
+
+### Why the earlier manual result was healthy
+
+Read-only inspection on the real Windows host **LIZHARY-CLIENT** confirmed the latest earlier run `ae79b93b721342669ddd2b6287d94cb6` was created at **1:11:35 PM** and restored at **1:16:29 PM**. Checks 636 and 637 were already healthy at **1:12:09 PM** and **1:13:38 PM**. Cleanup alone therefore does not explain those earlier readings; their original release output and immediate adapter state were not captured.
+
+The investigation then reproduced the transient condition in run `9dd02421d838410db718c079e32835c1`:
+
+| Observation | Recorded local time / result |
+| --- | --- |
+| Targeted release | Exit 0; 602 ms; native output retained |
+| Confirmed missing IPv4 | 1:26:13.241 PM; Wi-Fi Up, DHCP enabled, no IPv4 address or IPv4 gateway |
+| First sampled APIPA | 1:26:19.529 PM; `169.254.100.197`, no IPv4 gateway |
+| Browser Run Check | Check 641 at 1:26:41 PM; `dhcp_issue`, NR-00058 |
+| Usable configuration returned | First sampled at 1:26:48.732 PM; `192.168.1.5`, gateway `192.168.1.1` |
+| Later browser repair request | Request 37; precheck 642 at 1:27:01 PM already healthy; `skipped` / `already_recovered`; no command executed |
+| Saved-state Restore | Completed afterward; elevated task/rule checks returned no entries |
+
+The address returned about **35 seconds after release**, before the repair request and long before the **1:36:10 PM** safety rollback deadline. No NetRescue repair command or QA Restore caused that early recovery. These observations establish recovery before the repair; they do not identify which Windows component initiated reacquisition. NR-00058 is retained as **already recovered**, not credited as a verified repair.
+
+### Repeatable browser procedure
+
+Use the administrator server/runner setup from Demo 001, keep Automatic checks paused, and restore any previous QA run. Keep the dashboard open at **http://127.0.0.1:8000** before injection.
+
+```powershell
+& $qaRunner @qaOptions -Mode Apply -Fault NoIpv4
+```
+
+Wait for **NoIpv4 confirmed** and **Applied NoIpv4**, then immediately click **Run Check** in the browser. When the fault and repair button appear, click **Run repair** once from the dashboard. Do the detailed incident walkthrough after repair verification. Keep the terminal and its newly printed StatePath available for cleanup; do not spend the transient fault window copying evidence or opening other pages.
+
+Expect either **IPv4 Configuration Missing** or **Possible DHCP Configuration Issue**, depending on whether Windows has assigned APIPA by the time of the reading. The successful repeat below observed real APIPA. The app must still confirm the condition in its repair precheck; **Already recovered — no command run** is an honest skipped repair, not a repair-demo pass. The approximately 35-second interval from the preceding run is not guaranteed.
+
+The updated runner refuses additional manual IPv4 addresses, captures `noipv4-release.json` and `noipv4-after-release.json`, and verifies that Wi-Fi remains Up with DHCP but no usable IPv4 before claiming injection success. It does not freeze DHCP, block renewal, repeat release in the background, or force a diagnosis.
+
+After showing verified recovery, restore the **new run's** exact saved state:
+
+```powershell
+$demoStatePath = 'C:\ProgramData\NetRescueQA\<new-run-id>\state.json'
+& $qaRunner -Mode Restore -StatePath $demoStatePath
+```
+
+Then click **Run Check** again and perform the Administrator-terminal task/rule queries in section 5 of the guide. Future repeats must use their own state paths.
+
+### Successful run and measured evidence
+
+Recorded state path:
+
+```text
+C:\ProgramData\NetRescueQA\fcb027a8421046298ea02187dccd2a63\state.json
+```
+
+| Stage | Recorded result, 18 October 2026 |
+| --- | --- |
+| Healthy baseline | Check 643 at 1:28:46 PM; Wi-Fi, `192.168.1.5`, gateway `192.168.1.1` |
+| Rollback armed / deadline | State created 1:28:47 PM; safety rollback due 1:38:47 PM |
+| Injection confirmed | 1:28:49.522 PM; Wi-Fi Up, DHCP enabled, no usable IPv4 |
+| Browser Run Check | Check 644 at 1:29:05 PM; APIPA `169.254.100.197`, no gateway; `dhcp_issue`; NR-00059 |
+| Browser Run repair precheck | Check 645 at 1:29:12 PM; same APIPA condition still present |
+| Repair request | 38, `renew_dhcp`; Release and renew the address |
+| Command / verification | `completed`, exit 0; `verified`, success true; one of three allowed readings |
+| Automatic follow-up | Check 646 at 1:29:18 PM; healthy, `192.168.1.5`, gateway `192.168.1.1`; gateway/Internet/DNS passed |
+| Incident outcome | NR-00059 Closed; `verified_repair`; displayed follow-up confirmed the condition cleared |
+| Restore | Saved state `RestoredAt` 1:29:30.902 PM; helper confirmed completion by 1:29:35 PM |
+| Administrator cleanup | No `NetRescueQA-*` tasks or firewall rules; Wi-Fi retained usable DHCP IPv4 and original DNS server lists |
+| Post-Restore browser Check | 647 at 1:29:58 PM; Network Operational; gateway 2.50 ms, Internet 22.70 ms, DNS answered in 374.90 ms |
+
+The pre-repair gateway/Internet/DNS results were correctly displayed as **Not tested** because usable IPv4 was missing. Successful DNS above the 100 ms warning threshold remained a speed warning after recovery.
+
+| Timing | Recorded value / scope |
+| --- | --- |
+| Detection reading | 3.761 s, Check 644 |
+| Repair precheck | 1.090 s, Check 645 |
+| Command phase | 3.187 s (`command_ms` 3,186.90) |
+| Verification phase | 3.054 s (`elapsed_ms` 3,053.83) |
+| Follow-up reading | 3.028 s; included in verification, not added again |
+| Repair-record timestamp span | Approximately 6 s, 1:29:12–1:29:18 PM; excludes precheck and full HTTP overhead |
+| Post-Restore reading | Approximately 2.75 s, displayed by closing browser Check 647 |
+
+The incident's expanded measurements showed exit 0, command duration **3.19 seconds**, and verification **3.05 seconds**. Native output retained the release message that no address was associated with the endpoint, followed by a successful renewal; the resulting usable IPv4 and follow-up verification establish recovery. A complete browser click-to-response duration was not separately recorded.
+
+Browser screenshot retained locally as `noipv4-manual-verified-2026-10-18.png` in the session's visualization artifacts. Both injected runs and all old incidents remain in the existing database. Final read-only confirmation at 1:32 PM found DHCP still enabled, IPv4 DNS still manual with the original ordered servers, and IPv6 DNS still automatic. `.env` SHA-256 remained `42A83834DFE747DE1C06143AD33FF0C446C9CF308A4F6E2188454C27DAEBA168`; no database reset, migration, history deletion, or monitor-setting change was performed. Automatic checks remain paused as they were at the start of this investigation.
+
+**Verdict:** browser-operated NoIpv4 diagnosis, repair, displayed result, saved-state restoration, task/rule cleanup, and a healthy closing browser Check passed. Review incident details after the prompt repair action because the injected condition can recover on its own.
 
 ## Append the next demonstration here
 
-Add Demo 003 after the next new successful procedure; retain Demo 001 and Demo 002. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
+Add Demo 004 after the next new successful procedure; retain all earlier entries. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
 
 | Field | Fill in for the next demonstration |
 | --- | --- |

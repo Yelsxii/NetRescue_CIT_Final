@@ -80,13 +80,63 @@ function Add-QABlock([string]$Name, [string[]]$Addresses, [string]$Protocol = 'A
     $null = New-NetFirewallRule @parameters
 }
 
+function Get-QAIpv4Snapshot($Adapter) {
+    # A new .NET snapshot avoids retaining the pre-release adapter configuration.
+    $matches = @([Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() | Where-Object {
+        ([string]$_.Id).Trim('{}') -eq ([string]$Adapter.InterfaceGuid).Trim('{}')
+    })
+    if ($matches.Count -ne 1 -or $matches[0].Name -ne $Adapter.Name) { throw 'The selected adapter changed identity while observing IPv4 configuration.' }
+    $current = $matches[0]
+    $properties = $current.GetIPProperties()
+    $addresses = @($properties.UnicastAddresses | Where-Object {
+        $_.Address.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork
+    } | ForEach-Object {
+        [pscustomobject]@{ IPAddress=$_.Address.ToString(); PrefixOrigin=[string]$_.PrefixOrigin;
+            AddressState=[string]$_.DuplicateAddressDetectionState }
+    })
+    $usable = @($addresses | Where-Object {
+        $_.IPAddress -notlike '127.*' -and $_.IPAddress -ne '0.0.0.0' -and $_.IPAddress -notlike '169.254.*' -and
+        $_.AddressState -notin @('Invalid', 'Tentative', 'Duplicate')
+    } | ForEach-Object { $_.IPAddress })
+    return [pscustomobject]@{ CapturedAt=[DateTime]::UtcNow.ToString('o'); InterfaceAlias=$current.Name;
+        AdapterGuid=$current.Id; AdapterState=[string]$current.OperationalStatus;
+        DhcpEnabled=$properties.GetIPv4Properties().IsDhcpEnabled; Addresses=$addresses; UsableAddresses=$usable;
+        GatewayAddresses=@($properties.GatewayAddresses | Where-Object { $_.Address.AddressFamily -eq [Net.Sockets.AddressFamily]::InterNetwork } | ForEach-Object { $_.Address.ToString() }) }
+}
+
+function Assert-QANoIpv4Baseline($Snapshot) {
+    $usable = @($Snapshot.UsableAddresses)
+    $dhcpAddresses = @($Snapshot.Addresses | Where-Object { $_.IPAddress -in $usable -and $_.PrefixOrigin -eq 'Dhcp' })
+    $manualAddresses = @($Snapshot.Addresses | Where-Object { $_.PrefixOrigin -eq 'Manual' })
+    if ($Snapshot.AdapterState -ne 'Up' -or -not $Snapshot.DhcpEnabled -or $usable.Count -ne 1 -or $dhcpAddresses.Count -ne 1 -or $manualAddresses.Count) {
+        throw 'NoIpv4 requires one usable DHCP IPv4 address on the selected Up adapter, without additional manual IPv4 addresses. Nothing was released.'
+    }
+}
+
+function Invoke-TargetDhcpRelease([string]$Alias) {
+    $watch = [Diagnostics.Stopwatch]::StartNew()
+    $output = & "$env:SystemRoot\System32\ipconfig.exe" /release $Alias 2>&1
+    $exitCode = $LASTEXITCODE
+    $watch.Stop()
+    return [pscustomobject]@{ ExitCode=$exitCode; Output=($output | Out-String).Trim(); ElapsedMs=$watch.ElapsedMilliseconds }
+}
+
+function Invoke-QANoIpv4Fault($Adapter, [string]$Directory) {
+    $release = Invoke-TargetDhcpRelease $Adapter.Name
+    $release | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $Directory 'noipv4-release.json') -Encoding UTF8
+    $snapshot = Get-QAIpv4Snapshot $Adapter
+    $snapshot | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath (Join-Path $Directory 'noipv4-after-release.json') -Encoding UTF8
+    if ($release.ExitCode -ne 0) { throw ('The targeted DHCP release failed: ' + $release.Output) }
+    if ($snapshot.AdapterState -ne 'Up' -or -not $snapshot.DhcpEnabled -or @($snapshot.UsableAddresses).Count) {
+        throw 'NoIpv4 was not reproduced: the selected adapter is not Up with DHCP and no usable IPv4 address. Review noipv4-release.json and noipv4-after-release.json; this run will be restored.'
+    }
+    Write-Output ('NoIpv4 confirmed at ' + $snapshot.CapturedAt + ': ' + $Adapter.Name + ' is Up with DHCP and no usable IPv4 address.')
+}
+
 function Apply-QAFault($Adapter, $Routes, [string[]]$Targets) {
     switch ($Fault) {
         'AdapterDisabled' { $Adapter | Disable-NetAdapter -Confirm:$false -ErrorAction Stop }
-        'NoIpv4' {
-            & "$env:SystemRoot\System32\ipconfig.exe" /release $Adapter.Name | Out-Null
-            if ($LASTEXITCODE -ne 0) { throw 'The targeted DHCP release failed.' }
-        }
+        'NoIpv4' { Invoke-QANoIpv4Fault $Adapter $script:qaRunDirectory }
         'GatewayMissing' { $Routes | Remove-NetRoute -Confirm:$false -ErrorAction Stop }
         'DnsServer' {
             Set-DnsClientServerAddress -InterfaceIndex $Adapter.InterfaceIndex -ServerAddresses @('192.0.2.53', '2001:db8::53') -ErrorAction Stop
@@ -156,6 +206,7 @@ if ($up.Count -ne 1 -or $up[0].Name -ne $InterfaceAlias -or $adapter.Status -ne 
 }
 if (-not $routes.Count) { throw 'A baseline IPv4 default route is required.' }
 if ($Fault -in @('NoIpv4', 'GatewayMissing') -and [string]$ipInterface.Dhcp -ne 'Enabled') { throw 'This test requires DHCP; manual IP settings will not be replaced.' }
+if ($Fault -eq 'NoIpv4') { Assert-QANoIpv4Baseline (Get-QAIpv4Snapshot $adapter) }
 if ($Fault -eq 'GatewayMissing') {
     $persistentRoutes = @(Get-NetRoute -PolicyStore PersistentStore -ErrorAction Stop | Where-Object { $_.InterfaceIndex -eq $adapter.InterfaceIndex -and $_.DestinationPrefix -eq '0.0.0.0/0' })
     $guid = '{' + ([string]$adapter.InterfaceGuid).Trim('{}') + '}'
@@ -175,6 +226,7 @@ if (-not $targets.Count) { throw 'No external targets are configured.' }
 
 $runId = [guid]::NewGuid().ToString('N')
 $directory = New-SecureRunDirectory $runId
+$script:qaRunDirectory = $directory
 $StatePath = Join-Path $directory 'state.json'
 $restoreScript = Join-Path $directory 'Restore-NetRescueFault.ps1'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'Restore-NetRescueFault.ps1') -Destination $restoreScript
@@ -182,19 +234,23 @@ $script:qaState = [pscustomobject]@{
     Version = 1; TaskName = 'NetRescueQA-' + $runId; Fault = $Fault; AdapterGuid = [string]$adapter.InterfaceGuid;
     InterfaceAlias = $adapter.Name; WasEnabled = $true; Dhcp = [string]$ipInterface.Dhcp; Dns = $dns;
     DefaultRoutes = @($routes | Select-Object NextHop, RouteMetric); FirewallRuleNames = @('NetRescueQA-' + $runId + '-block');
-    CreatedAt = [DateTime]::UtcNow.ToString('o'); RestoredAt = $null
+    CreatedAt = [DateTime]::UtcNow.ToString('o'); RollbackDueAt = [DateTime]::UtcNow.AddSeconds($RollbackSeconds).ToString('o'); RestoredAt = $null
 }
 $script:qaState | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $StatePath -Encoding UTF8
 $baseline | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath (Join-Path $directory 'baseline.json') -Encoding UTF8
 $exe = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $arguments = '-NoLogo -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "' + $restoreScript + '" -StatePath "' + $StatePath + '"'
 $action = New-ScheduledTaskAction -Execute $exe -Argument $arguments
-$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddSeconds($RollbackSeconds)
+$trigger = New-ScheduledTaskTrigger -Once -At ([DateTime]::Parse($script:qaState.RollbackDueAt).ToLocalTime())
 $taskPrincipal = New-ScheduledTaskPrincipal -UserId 'S-1-5-18' -LogonType ServiceAccount -RunLevel Highest
 $taskSettings = New-ScheduledTaskSettingsSet -StartWhenAvailable -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Minutes 4) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
 $null = Register-ScheduledTask -TaskName $script:qaState.TaskName -Action $action -Trigger $trigger -Principal $taskPrincipal -Settings $taskSettings -ErrorAction Stop
 $null = Get-ScheduledTask -TaskName $script:qaState.TaskName -ErrorAction Stop
 Write-Output ('Rollback armed. StatePath: ' + $StatePath)
+Write-Output ('Safety rollback due: ' + $script:qaState.RollbackDueAt + ' (UTC).')
+if ($Fault -eq 'NoIpv4' -and -not $ExerciseApp) {
+    Write-Output 'Keep the dashboard ready: Windows can reacquire IPv4 itself. After confirmation, click Run Check and the offered Run repair promptly; review the incident details after repair.'
+}
 
 $applied = $false
 $steps = @()
@@ -202,6 +258,7 @@ try {
     Apply-QAFault $adapter $routes $targets
     $applied = $true
     Write-Output ('Applied ' + $Fault + ' to ' + $InterfaceAlias + '. Open ' + $BaseUrl + ' to observe the incident.')
+    if (-not $ExerciseApp) { Write-Output 'Now click Run Check in NetRescue, then Run repair once if offered. This runner has not requested a post-injection Check or repair. Restore this exact StatePath after the demo.' }
     if ($ExerciseApp) {
         $steps += Invoke-AppAction '/health-checks' (Join-Path $directory 'detected.html')
         $detected = Save-AppEvidence 'detected' $directory
