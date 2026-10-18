@@ -18,7 +18,7 @@ class RunNetworkMonitor extends Command
     {
         $settings = MonitorSetting::current();
 
-        if (!$settings->enabled && !$this->option('force')) {
+        if (! $settings->enabled && ! $this->option('force')) {
             $this->line('Monitoring is disabled.');
             return self::SUCCESS;
         }

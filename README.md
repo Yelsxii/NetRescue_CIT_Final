@@ -32,7 +32,7 @@ In a second project terminal, start scheduled checks if wanted:
 php artisan schedule:work
 ```
 
-Open http://127.0.0.1:8000/. START_NETRESCUE.bat starts both processes on this
+Open http://127.0.0.1:8000/. [START_NETRESCUE.bat](tools/windows/START_NETRESCUE.bat) starts both processes on this
 computer; run it as Administrator when repairs are needed. Automatic checks
 also depend on the interval and enabled setting. Run Check and Run repair
 remain available when scheduled checks are paused.
@@ -43,6 +43,11 @@ automatic checks are enabled but no recent scheduler tick is available. After
 starting the scheduler, allow up to one minute for its first tick. **Paused**
 means automatic checks are disabled in Settings. Do not start a second
 scheduler if one is already running.
+
+The optional batch helpers are grouped in `tools/windows/`. From the project
+root, run `& '.\tools\windows\START_NETRESCUE.bat'`. Update any shortcut that used
+the former root location. These helpers start Laravel commands; diagnosis,
+scoring, repair decisions and verification are implemented in PHP services.
 
 ## Existing installation
 
@@ -63,8 +68,23 @@ php artisan migrate --seed
 ```
 
 The seeder creates settings and one local identity only; it creates no demo
-measurements, incidents or other computers. SETUP_WINDOWS.bat is the fresh
+measurements, incidents or other computers. [SETUP_WINDOWS.bat](tools/windows/SETUP_WINDOWS.bat) is the fresh
 installation helper, not the updater for an existing project.
+
+## Source organization and examination review
+
+The active Laravel project uses the standard `app/`, `resources/`, `routes/`,
+`database/`, `config/` and `public/` directories. Start a source review with
+[code organization](docs/CODE_ORGANIZATION.md) and the
+[examination rubric comparison](docs/FINAL_EXAM_ALIGNMENT.md).
+
+`tools/qa/` holds fault-simulation helpers, `tools/windows/` holds optional
+startup/setup helpers, and `documentation/` holds the report and its figures.
+Historical patch copies and early reports are labeled under
+[`docs/archive/`](docs/archive/README.md). Temporary diagnostic scripts are
+preserved outside the web root in `tools/archive/diagnostics/`; they are not
+part of normal application startup or repair. The unused legacy agent package
+is retained in `tools/archive/agents/`.
 
 ## Validation
 
@@ -75,6 +95,12 @@ php artisan test
 Automated tests cover local scope, removed routes, retained evidence,
 diagnosis, safe repairs and automatic verification with mocked Windows calls.
 Actual Windows networking and command timing require laptop testing.
+
+The PHP style rules are in `pint.json`. They format whitespace/layout while
+preserving syntax, comments and literal contents. See the
+[code organization guide](docs/CODE_ORGANIZATION.md#repeating-the-style-check)
+for the active-source style-check command. UI assets, archived artifacts and
+runtime folders are excluded from the formatting scope.
 
 For the full per-fault QA plan, findings and guarded local Windows runner, see
 [FAULT_QA_PLAN.md](docs/FAULT_QA_PLAN.md), [FAULT_QA_RESULTS.md](docs/FAULT_QA_RESULTS.md)

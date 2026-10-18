@@ -1,7 +1,7 @@
 # NetRescue fault QA plan
 
 Scope: the production application in `app/`, `resources/`, and `public/`, based on
-commit `4a9ffca`. `files/` contains historical copies and is not the running app.
+commit `4a9ffca`. Historical patch copies now reside in `docs/archive/issue-1/files/` and are not the running app.
 
 ## Acceptance rule
 

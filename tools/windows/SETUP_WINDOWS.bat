@@ -1,6 +1,6 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+cd /d "%~dp0..\.."
 echo.
 echo ============================================
 echo   NetRescue CIT - Windows Setup Helper

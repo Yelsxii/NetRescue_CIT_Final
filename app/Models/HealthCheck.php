@@ -34,9 +34,20 @@ class HealthCheck extends Model
         ];
     }
 
-    public function device(): BelongsTo { return $this->belongsTo(Device::class); }
-    public function recoveryActionsBefore(): HasMany { return $this->hasMany(RecoveryAction::class, 'before_health_check_id'); }
-    public function recoveryActionsAfter(): HasMany { return $this->hasMany(RecoveryAction::class, 'after_health_check_id'); }
+    public function device(): BelongsTo
+    {
+        return $this->belongsTo(Device::class);
+    }
+
+    public function recoveryActionsBefore(): HasMany
+    {
+        return $this->hasMany(RecoveryAction::class, 'before_health_check_id');
+    }
+
+    public function recoveryActionsAfter(): HasMany
+    {
+        return $this->hasMany(RecoveryAction::class, 'after_health_check_id');
+    }
 
     public function getIsHealthyAttribute(): bool
     {
@@ -47,6 +58,7 @@ class HealthCheck extends Model
     {
         return ! in_array($this->diagnosis_code, ['configuration_unreadable', 'probe_unavailable'], true);
     }
+
     public function probeWasRun(string $probe): bool
     {
         $states = $this->probe_meta['probe_states'] ?? null;

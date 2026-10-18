@@ -63,8 +63,10 @@ class NetworkRequestTimeoutTest extends TestCase
         $timeout = app(NetworkRequestTimeout::class);
         // All configured target deadlines and each allowed follow-up are covered.
         $this->assertGreaterThan(232, $timeout->recoverySeconds('renew_dhcp', 'dhcp_issue'));
-        $this->assertGreaterThan($timeout->recoverySeconds('enable_adapter', 'adapter_disabled'),
-            $timeout->recoverySeconds('renew_dhcp', 'dhcp_issue'));
+        $this->assertGreaterThan(
+            $timeout->recoverySeconds('enable_adapter', 'adapter_disabled'),
+            $timeout->recoverySeconds('renew_dhcp', 'dhcp_issue')
+        );
     }
 
     public function test_repair_request_extends_php_allowance_before_the_service_starts(): void

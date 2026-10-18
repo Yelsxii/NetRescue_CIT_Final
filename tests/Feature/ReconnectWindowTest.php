@@ -32,8 +32,17 @@ class ReconnectWindowTest extends TestCase
         $this->clock = new class extends RecoveryWaitClock {
             public float $seconds = 0;
             public array $waits = [];
-            public function now(): float { return $this->seconds; }
-            public function wait(float $seconds): void { $this->waits[] = $seconds; $this->seconds += $seconds; }
+
+            public function now(): float
+            {
+                return $this->seconds;
+            }
+
+            public function wait(float $seconds): void
+            {
+                $this->waits[] = $seconds;
+                $this->seconds += $seconds;
+            }
         };
         $this->app->instance(RecoveryWaitClock::class, $this->clock);
     }

@@ -17,7 +17,8 @@ class RecoveryService
         private readonly RecoveryCommandRunner $commands,
         private readonly RecoveryPlan $plan,
         private readonly RecoveryWaitClock $clock,
-    ) {}
+    ) {
+    }
 
     public function attempt(Incident $incident, ?array $confirmation = null): RecoveryAction
     {
@@ -96,8 +97,13 @@ class RecoveryService
             'error_message' => $command['successful'] ? null : $this->excerpt($command['error']),
         ]);
         try {
-            $afterResult = $this->verifyAfter($recovery, $actionCode, $before->interface_name,
-                (bool) $command['successful'] || $execution === 'timed_out', $commandMs);
+            $afterResult = $this->verifyAfter(
+                $recovery,
+                $actionCode,
+                $before->interface_name,
+                (bool) $command['successful'] || $execution === 'timed_out',
+                $commandMs
+            );
         } catch (Throwable $e) {
             report($e);
             $recovery->update([
@@ -202,11 +208,17 @@ class RecoveryService
             $check = $result['check'];
             $sameAdapter = blank($adapter) || $adapter === $check->interface_name;
             $reconnecting = $mayBeReconnecting && in_array($actionCode, ['enable_adapter', 'restart_adapter', 'renew_dhcp'], true)
-                && $sameAdapter && in_array($check->diagnosis_code,
-                    ['adapter_disabled', 'adapter_disconnected', 'ip_configuration_missing', 'dhcp_issue', 'gateway_missing', 'gateway_unreachable'], true);
+                && $sameAdapter && in_array(
+                    $check->diagnosis_code,
+                    ['adapter_disabled', 'adapter_disconnected', 'ip_configuration_missing', 'dhcp_issue', 'gateway_missing', 'gateway_unreachable'],
+                    true
+                );
             $transientUnread = ! $check->readingFinished() && ($sameAdapter || blank($check->interface_name))
-                && in_array(data_get($check->probe_meta, 'configuration_error_code'),
-                ['adapter_transitioning', 'adapter_snapshot_changed', 'process_timed_out'], true);
+                && in_array(
+                    data_get($check->probe_meta, 'configuration_error_code'),
+                    ['adapter_transitioning', 'adapter_snapshot_changed', 'process_timed_out'],
+                    true
+                );
             if ($canUseWindow && ($reconnecting || $transientUnread)) $windowActive = true;
             $elapsed = $this->clock->now() - $started;
             $stop = $check->readingFinished() && ! $reconnecting ? 'settled'

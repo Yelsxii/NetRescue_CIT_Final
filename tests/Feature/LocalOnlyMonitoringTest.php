@@ -50,7 +50,8 @@ class LocalOnlyMonitoringTest extends TestCase
 
     public function test_remote_records_do_not_enter_local_dashboard_checks_history_or_status(): void
     {
-        $host = Device::localHost(); $local = $this->check($host);
+        $host = Device::localHost();
+        $local = $this->check($host);
         $other = $this->foreign();
         $remote = $this->check($other, ['checked_at' => now(), 'health_score' => 0, 'health_status' => 'critical',
             'diagnosis_code' => 'adapter_disabled', 'diagnosis_title' => 'REMOTE-MEASUREMENT-HIDDEN',
@@ -71,8 +72,11 @@ class LocalOnlyMonitoringTest extends TestCase
 
     public function test_remote_incident_urls_cannot_view_repair_retest_or_queue_anything(): void
     {
-        Device::localHost(); $other = $this->foreign(); $incident = $this->incident($other, $this->check($other));
-        $commands = Mockery::mock(RecoveryCommandRunner::class); $commands->shouldNotReceive('run');
+        Device::localHost();
+        $other = $this->foreign();
+        $incident = $this->incident($other, $this->check($other));
+        $commands = Mockery::mock(RecoveryCommandRunner::class);
+        $commands->shouldNotReceive('run');
         $this->app->instance(RecoveryCommandRunner::class, $commands);
         $this->get('/incidents/'.$incident->id)->assertNotFound();
         $this->get('/incidents/'.$incident->id, ['X-Panel' => '1'])->assertNotFound();
@@ -101,9 +105,12 @@ class LocalOnlyMonitoringTest extends TestCase
 
     public function test_automatic_monitor_records_only_this_computer_and_does_not_touch_old_remote_rows(): void
     {
-        $host = Device::localHost(); $this->check($host, ['source' => 'automatic', 'checked_at' => now()->subMinutes(10)]);
-        $other = $this->foreign(); $remote = $this->check($other, ['source' => 'automatic', 'checked_at' => now()]);
-        $incident = $this->incident($other, $remote); $before = $other->fresh()->getAttributes();
+        $host = Device::localHost();
+        $this->check($host, ['source' => 'automatic', 'checked_at' => now()->subMinutes(10)]);
+        $other = $this->foreign();
+        $remote = $this->check($other, ['source' => 'automatic', 'checked_at' => now()]);
+        $incident = $this->incident($other, $remote);
+        $before = $other->fresh()->getAttributes();
         MonitorSetting::current()->update(['enabled' => true, 'interval_minutes' => 5]);
         $probe = Mockery::mock(NetworkProbeService::class);
         $probe->shouldReceive('collectConfiguration')->once()->withNoArgs()->andReturn([

@@ -130,9 +130,9 @@ If Wi-Fi remains disabled, manual restoration in Administrator PowerShell is:
 Enable-NetAdapter -Name "Wi-Fi" -Confirm:$false -ErrorAction Stop
 ```
 
-Delete the two temporary diagnostic PHP files from `public` after testing:
-netrescue-process-diagnostic.php and netrescue-adapter-repair-diagnostic.php.
-Neither is needed for the application's normal repair flow.
+The temporary diagnostic PHP files have been archived outside `public` under
+`tools/archive/diagnostics/`. They are retained as historical troubleshooting
+artifacts and are not needed for the application's normal repair flow.
 
 ## Validation and limits
 

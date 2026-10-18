@@ -9,7 +9,7 @@ It does not scan, discover, register, poll or repair other computers.
 Removed: Devices pages/filters/search, fleet reporting/offline statistics,
 neighbor watching, recognition, pairing/enrollment, agent deployment scripts,
 agent API ingestion/commands, remote repair dispatch and stale-heartbeat jobs.
-The LAN server/firewall launch helpers are removed. START_NETRESCUE.bat binds
+The LAN server/firewall launch helpers are removed. `tools/windows/START_NETRESCUE.bat` binds
 to 127.0.0.1 and starts the local scheduler. Other computers' software/services
 are not uninstalled by this source update.
 

@@ -24,11 +24,30 @@ class Incident extends Model
         ];
     }
 
-    public function device(): BelongsTo { return $this->belongsTo(Device::class); }
-    public function latestHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'latest_health_check_id'); }
-    public function openingHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'opening_health_check_id'); }
-    public function closingHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'closing_health_check_id'); }
-    public function recoveryActions(): HasMany { return $this->hasMany(RecoveryAction::class)->latest('started_at')->orderByDesc('id'); }
+    public function device(): BelongsTo
+    {
+        return $this->belongsTo(Device::class);
+    }
+
+    public function latestHealthCheck(): BelongsTo
+    {
+        return $this->belongsTo(HealthCheck::class, 'latest_health_check_id');
+    }
+
+    public function openingHealthCheck(): BelongsTo
+    {
+        return $this->belongsTo(HealthCheck::class, 'opening_health_check_id');
+    }
+
+    public function closingHealthCheck(): BelongsTo
+    {
+        return $this->belongsTo(HealthCheck::class, 'closing_health_check_id');
+    }
+
+    public function recoveryActions(): HasMany
+    {
+        return $this->hasMany(RecoveryAction::class)->latest('started_at')->orderByDesc('id');
+    }
 
     public function getReferenceAttribute(): string
     {

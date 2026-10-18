@@ -5,8 +5,7 @@ use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration
-{
+return new class extends Migration {
     public function up(): void
     {
         /*
@@ -23,7 +22,7 @@ return new class extends Migration
         ];
 
         foreach ($tables as $tableName => $foreignKeyName) {
-            if (!Schema::hasColumn($tableName, 'device_id')) {
+            if (! Schema::hasColumn($tableName, 'device_id')) {
                 Schema::table($tableName, function (Blueprint $table) {
                     $table->unsignedBigInteger('device_id')
                         ->nullable()
@@ -86,7 +85,7 @@ return new class extends Migration
             /*
              * Create a properly named foreign key.
              */
-            if (!$correctForeignKeyAlreadyExists) {
+            if (! $correctForeignKeyAlreadyExists) {
                 Schema::table(
                     $tableName,
                     function (Blueprint $table) use ($foreignKeyName) {
@@ -115,7 +114,7 @@ return new class extends Migration
             ->where('device_uuid', $localUuid)
             ->value('id');
 
-        if (!$localId) {
+        if (! $localId) {
             $localId = DB::table('devices')->insertGetId([
                 'device_uuid' => $localUuid,
                 'display_name' => gethostname() ?: 'NetRescue Central Host',
@@ -158,7 +157,7 @@ return new class extends Migration
         ];
 
         foreach ($tables as $tableName => $foreignKeyName) {
-            if (!Schema::hasColumn($tableName, 'device_id')) {
+            if (! Schema::hasColumn($tableName, 'device_id')) {
                 continue;
             }
 

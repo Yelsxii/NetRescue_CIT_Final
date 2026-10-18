@@ -17,11 +17,11 @@ class IncidentStory
             $resolution = $attempt && in_array($attempt->verification_status, ['pending', 'unread', 'adapter_changed'], true)
                 ? 'This incident remains open because the current condition has not been verified after the repair request.'
                 : match ($incident->code) {
-                'dhcp_issue' => 'No usable DHCP address obtained; a 169.254 fallback address was reported.',
-                'ip_configuration_missing' => 'No usable IPv4 address was reported.',
-                'gateway_missing' => 'No default IPv4 gateway was reported.',
-                default => 'This condition remains open. '.$incident->plainDetail(),
-            };
+                    'dhcp_issue' => 'No usable DHCP address obtained; a 169.254 fallback address was reported.',
+                    'ip_configuration_missing' => 'No usable IPv4 address was reported.',
+                    'gateway_missing' => 'No default IPv4 gateway was reported.',
+                    default => 'This condition remains open. '.$incident->plainDetail(),
+                };
         } elseif ($incident->resolution_kind === 'already_recovered') {
             $resolution = 'The pre-repair check confirmed that the condition had already cleared. No repair command was run.';
         } elseif ($attempt?->beforeHealthCheck?->diagnosis_code === 'healthy') {

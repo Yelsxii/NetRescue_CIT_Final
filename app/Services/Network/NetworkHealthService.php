@@ -17,7 +17,8 @@ class NetworkHealthService
         private readonly HealthScoreCalculator $scoreCalculator,
         private readonly DiagnosticEngine $diagnosticEngine,
         private readonly IncidentManager $incidentManager,
-    ) {}
+    ) {
+    }
 
     public function run(string $source = 'manual', bool $manageIncidents = true, ?string $interfaceName = null, ?float $configurationTimeout = null): array
     {

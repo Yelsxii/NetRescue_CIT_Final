@@ -12,17 +12,17 @@ class CheckStory
         return collect($checks)
             ->filter(fn (HealthCheck $check) => $check->readingFinished())
             ->map(fn (HealthCheck $check) => (object) [
-            'checked_at' => $check->checked_at,
-            'gateway' => $check->gateway_latency_ms,
-            'internet' => $check->internet_latency_ms,
-            'dns' => $check->dns_latency_ms,
-            'gateway_ok' => $check->probeWasRun('gateway') ? $check->gateway_reachable : null,
-            'internet_ok' => $check->probeWasRun('internet') ? $check->internet_reachable : null,
-            'dns_ok' => $check->probeWasRun('dns') ? $check->dns_operational : null,
-            'local_ip' => $check->local_ip,
-            'source' => $check->source,
-            'title' => $check->diagnosis_title,
-        ])->values();
+                'checked_at' => $check->checked_at,
+                'gateway' => $check->gateway_latency_ms,
+                'internet' => $check->internet_latency_ms,
+                'dns' => $check->dns_latency_ms,
+                'gateway_ok' => $check->probeWasRun('gateway') ? $check->gateway_reachable : null,
+                'internet_ok' => $check->probeWasRun('internet') ? $check->internet_reachable : null,
+                'dns_ok' => $check->probeWasRun('dns') ? $check->dns_operational : null,
+                'local_ip' => $check->local_ip,
+                'source' => $check->source,
+                'title' => $check->diagnosis_title,
+            ])->values();
     }
 
     public static function mark(mixed $ok, mixed $ms, int $warningMs): array

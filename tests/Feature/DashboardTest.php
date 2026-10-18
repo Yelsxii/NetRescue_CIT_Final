@@ -66,4 +66,3 @@ class DashboardTest extends TestCase
         $response->assertSee('100 ms');
     }
 }
-

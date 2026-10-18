@@ -79,7 +79,8 @@ class RecoveryEvidenceTest extends TestCase
     {
         $incident = $this->incident($this->check('dhcp_issue'));
         $before = $this->check('healthy', ['source' => 'recovery_before']);
-        $this->measurements($before); $this->command(null);
+        $this->measurements($before);
+        $this->command(null);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('skipped', $result->execution_status);
         $this->assertSame('already_recovered', $result->verification_status);
@@ -91,9 +92,11 @@ class RecoveryEvidenceTest extends TestCase
 
     public function test_real_before_after_recovery_is_verified(): void
     {
-        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
+        $before = $this->check('dhcp_issue');
+        $incident = $this->incident($before);
         $after = $this->check('healthy', ['source' => 'recovery_after']);
-        $this->measurements($before, $after); $this->command(true);
+        $this->measurements($before, $after);
+        $this->command(true);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertTrue($result->success);
         $this->assertSame('completed', $result->execution_status);
@@ -104,8 +107,10 @@ class RecoveryEvidenceTest extends TestCase
 
     public function test_command_failure_is_separate_from_the_network_remaining_faulty(): void
     {
-        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
-        $this->measurements($before, $this->check('dhcp_issue')); $this->command(false);
+        $before = $this->check('dhcp_issue');
+        $incident = $this->incident($before);
+        $this->measurements($before, $this->check('dhcp_issue'));
+        $this->command(false);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertFalse($result->success);
         $this->assertSame('failed', $result->execution_status);
@@ -116,8 +121,10 @@ class RecoveryEvidenceTest extends TestCase
 
     public function test_recovery_observed_after_a_command_error_is_not_claimed_as_a_verified_repair(): void
     {
-        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
-        $this->measurements($before, $this->check('healthy')); $this->command(false);
+        $before = $this->check('dhcp_issue');
+        $incident = $this->incident($before);
+        $this->measurements($before, $this->check('healthy'));
+        $this->command(false);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertFalse($result->success);
         $this->assertSame('observed_recovery', $incident->fresh()->resolution_kind);
@@ -127,7 +134,8 @@ class RecoveryEvidenceTest extends TestCase
     public function test_an_unreadable_precheck_runs_no_command_and_keeps_the_incident_open(): void
     {
         $incident = $this->incident($this->check('dhcp_issue'));
-        $this->measurements($this->check('configuration_unreadable')); $this->command(null);
+        $this->measurements($this->check('configuration_unreadable'));
+        $this->command(null);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('unread', $result->verification_status);
         $this->assertSame('active', $incident->fresh()->status);
@@ -136,7 +144,8 @@ class RecoveryEvidenceTest extends TestCase
     public function test_a_healthy_different_adapter_does_not_clear_or_repair_the_original_adapter(): void
     {
         $incident = $this->incident($this->check('dhcp_issue'));
-        $this->measurements($this->check('healthy', ['interface_name' => 'Ethernet'])); $this->command(null);
+        $this->measurements($this->check('healthy', ['interface_name' => 'Ethernet']));
+        $this->command(null);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('adapter_changed', $result->verification_status);
         $this->assertSame('active', $incident->fresh()->status);
@@ -145,7 +154,8 @@ class RecoveryEvidenceTest extends TestCase
     public function test_changed_condition_is_closed_as_superseded_without_a_command(): void
     {
         $incident = $this->incident($this->check('dhcp_issue'));
-        $this->measurements($this->check('gateway_missing', ['local_ip' => '192.168.1.5'])); $this->command(null);
+        $this->measurements($this->check('gateway_missing', ['local_ip' => '192.168.1.5']));
+        $this->command(null);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('skipped', $result->execution_status);
         $this->assertSame('superseded', $incident->fresh()->resolution_kind);
@@ -155,7 +165,8 @@ class RecoveryEvidenceTest extends TestCase
     public function test_existing_healthy_before_and_after_attempt_uses_consistent_honest_text(): void
     {
         $incident = $this->incident($this->check('dhcp_issue', ['checked_at' => now()->subMinute()]));
-        $before = $this->check('healthy'); $after = $this->check('healthy', ['source' => 'recovery_after']);
+        $before = $this->check('healthy');
+        $after = $this->check('healthy', ['source' => 'recovery_after']);
         RecoveryAction::create(['device_id' => $incident->device_id, 'incident_id' => $incident->id,
             'action_code' => 'renew_dhcp', 'action_label' => 'Release and renew the address',
             'before_health_check_id' => $before->id, 'after_health_check_id' => $after->id,
@@ -197,7 +208,8 @@ class RecoveryEvidenceTest extends TestCase
 
     public function test_repeated_checks_do_not_reset_the_next_repair_action(): void
     {
-        $check = $this->check('dhcp_issue'); $incident = $this->incident($check);
+        $check = $this->check('dhcp_issue');
+        $incident = $this->incident($check);
         RecoveryAction::create(['incident_id' => $incident->id, 'action_code' => 'renew_dhcp',
             'action_label' => 'Renew', 'started_at' => now(), 'completed_at' => now(), 'success' => false]);
         $incident->update(['recovery_action_code' => 'restart_adapter', 'recommended_action' => 'Restart next.']);
@@ -208,7 +220,8 @@ class RecoveryEvidenceTest extends TestCase
 
     public function test_command_result_is_retained_when_follow_up_verification_errors(): void
     {
-        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
+        $before = $this->check('dhcp_issue');
+        $incident = $this->incident($before);
         $health = Mockery::mock(NetworkHealthService::class);
         $health->shouldReceive('run')->once()->with('recovery_before', false, 'Wi-Fi')->andReturn(['check' => $before]);
         $health->shouldReceive('run')->once()->with('recovery_after', false, 'Wi-Fi')->andReturnUsing(function () use ($incident) {
@@ -220,7 +233,8 @@ class RecoveryEvidenceTest extends TestCase
             $this->assertStringContainsString('follow-up verification has not finished', $saved->outcomeSummary());
             throw new \RuntimeException('Simulated follow-up interruption');
         });
-        $this->app->instance(NetworkHealthService::class, $health); $this->command(true);
+        $this->app->instance(NetworkHealthService::class, $health);
+        $this->command(true);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('completed', $result->execution_status);
         $this->assertSame('unread', $result->verification_status);
@@ -235,7 +249,8 @@ class RecoveryEvidenceTest extends TestCase
 
     public function test_command_error_is_retained_if_follow_up_also_errors(): void
     {
-        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
+        $before = $this->check('dhcp_issue');
+        $incident = $this->incident($before);
         $health = Mockery::mock(NetworkHealthService::class);
         $health->shouldReceive('run')->once()->with('recovery_before', false, 'Wi-Fi')->andReturn(['check' => $before]);
         $health->shouldReceive('run')->once()->with('recovery_after', false, 'Wi-Fi')->andReturnUsing(function () use ($incident) {
@@ -244,7 +259,8 @@ class RecoveryEvidenceTest extends TestCase
             $this->assertSame('Access denied', $saved->error_message);
             throw new \RuntimeException('Verification unavailable');
         });
-        $this->app->instance(NetworkHealthService::class, $health); $this->command(false);
+        $this->app->instance(NetworkHealthService::class, $health);
+        $this->command(false);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('failed', $result->execution_status);
         $this->assertStringContainsString('Access denied', $result->error_message);
@@ -273,8 +289,10 @@ class RecoveryEvidenceTest extends TestCase
 
     public function test_an_unreadable_follow_up_preserves_execution_and_requests_a_fresh_check(): void
     {
-        $before = $this->check('dhcp_issue'); $incident = $this->incident($before);
-        $this->measurements($before, $this->check('configuration_unreadable')); $this->command(true);
+        $before = $this->check('dhcp_issue');
+        $incident = $this->incident($before);
+        $this->measurements($before, $this->check('configuration_unreadable'));
+        $this->command(true);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('completed', $result->execution_status);
         $this->assertSame('unread', $result->verification_status);
@@ -294,7 +312,8 @@ class RecoveryEvidenceTest extends TestCase
             'before_health_check_id' => $opened->id, 'started_at' => now()->subMinutes(2),
             'execution_status' => 'pending', 'verification_status' => 'pending']);
         $healthy = $this->check('healthy');
-        $this->measurements($healthy); $this->command(null);
+        $this->measurements($healthy);
+        $this->command(null);
         $latest = app(RecoveryService::class)->attempt($incident);
         $this->assertSame('already_recovered', $latest->verification_status);
         $this->assertSame('pending', $earlier->fresh()->execution_status);
@@ -309,14 +328,16 @@ class RecoveryEvidenceTest extends TestCase
 
     public function test_a_later_skipped_request_does_not_hide_the_previous_command_error(): void
     {
-        $opened = $this->check('dhcp_issue'); $incident = $this->incident($opened);
+        $opened = $this->check('dhcp_issue');
+        $incident = $this->incident($opened);
         $earlier = RecoveryAction::create(['device_id' => $incident->device_id, 'incident_id' => $incident->id,
             'action_code' => 'renew_dhcp', 'action_label' => 'Release and renew the address',
             'before_health_check_id' => $opened->id, 'after_health_check_id' => $opened->id,
             'started_at' => now()->subMinutes(2), 'completed_at' => now()->subMinute(),
             'execution_status' => 'failed', 'verification_status' => 'not_verified',
             'success' => false, 'command_exit_code' => 1, 'error_message' => 'Access is denied (Windows System Error 5).']);
-        $this->measurements($this->check('healthy')); $this->command(null);
+        $this->measurements($this->check('healthy'));
+        $this->command(null);
         app(RecoveryService::class)->attempt($incident);
         $this->withHeaders(['X-Panel' => '1'])->get('/incidents/'.$incident->id)->assertOk()
             ->assertSeeText('No command was run for this request')

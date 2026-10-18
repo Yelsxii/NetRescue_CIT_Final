@@ -8,7 +8,9 @@ use Throwable;
 
 class RecoveryCommandRunner
 {
-    public function __construct(private readonly NetworkProbeService $probe) {}
+    public function __construct(private readonly NetworkProbeService $probe)
+    {
+    }
 
     public function run(string $actionCode, string $incidentCode, ?string $interfaceName): array
     {

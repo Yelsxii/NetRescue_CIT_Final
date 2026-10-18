@@ -10,7 +10,7 @@ to the user's laptop PowerShell or desktop was available. No settings on that
 laptop were changed.
 
 Base reviewed: `4a9ffca420b821635c23897786cd2d8a42861d68` (`main`). Production code
-is in the repository root application; historical copies in `files/` were not
+is in the repository root application; historical copies now archived in `docs/archive/issue-1/files/` were not
 treated as the running implementation.
 
 ## Confirmed defects and corrections

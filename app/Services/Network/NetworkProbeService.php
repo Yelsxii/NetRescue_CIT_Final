@@ -15,7 +15,7 @@ class NetworkProbeService
 
     public function collectConfiguration(?string $interfaceName = null, ?float $configurationTimeout = null): array
     {
-        if (!$this->isSupportedPlatform()) {
+        if (! $this->isSupportedPlatform()) {
             return $this->emptyConfiguration('NetRescue network probes require Windows 10 or Windows 11.', false);
         }
 
@@ -39,13 +39,16 @@ class NetworkProbeService
         }
         $result = $this->runProcess($command, $timeout);
 
-        if (!$result['successful']) {
-            return $this->emptyConfiguration($result['error'] ?: 'Windows network configuration could not be read.', true,
-                ! empty($result['timed_out']) ? 'process_timed_out' : 'process_failed');
+        if (! $result['successful']) {
+            return $this->emptyConfiguration(
+                $result['error'] ?: 'Windows network configuration could not be read.',
+                true,
+                ! empty($result['timed_out']) ? 'process_timed_out' : 'process_failed'
+            );
         }
 
         $decoded = json_decode(trim($result['output']), true);
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             return $this->emptyConfiguration('Windows returned an unreadable network configuration response.');
         }
 
@@ -105,10 +108,10 @@ class NetworkProbeService
 
     public function probeGateway(?string $gatewayIp): array
     {
-        if (!$gatewayIp || filter_var($gatewayIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
+        if (! $gatewayIp || filter_var($gatewayIp, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false) {
             return ['reachable' => false, 'latency_ms' => null, 'error' => 'No valid IPv4 gateway is available.'];
         }
-        if (!$this->isSupportedPlatform()) {
+        if (! $this->isSupportedPlatform()) {
             return ['reachable' => false, 'latency_ms' => null, 'error' => 'Gateway probing requires Windows.'];
         }
 
@@ -146,16 +149,21 @@ POWERSHELL;
 
         foreach ($targets as $target) {
             $parsed = $this->parseTarget((string) $target);
-            if (!$parsed) { $errors[] = "Invalid target: {$target}"; continue; }
+            if (! $parsed) {
+                $errors[] = "Invalid target: {$target}";
+                continue;
+            }
 
             [$host, $port] = $parsed;
             $started = microtime(true);
-            $errno = 0; $errstr = '';
+            $errno = 0;
+            $errstr = '';
 
             try {
                 $socket = @stream_socket_client("tcp://{$host}:{$port}", $errno, $errstr, $timeout, STREAM_CLIENT_CONNECT);
             } catch (Throwable $e) {
-                $socket = false; $errstr = $e->getMessage();
+                $socket = false;
+                $errstr = $e->getMessage();
             }
 
             $elapsed = round((microtime(true) - $started) * 1000, 2);
@@ -176,10 +184,10 @@ POWERSHELL;
     public function probeDns(string $domain): array
     {
         $domain = strtolower(trim($domain));
-        if (!$this->isValidDomain($domain)) {
+        if (! $this->isValidDomain($domain)) {
             return ['operational' => false, 'latency_ms' => null, 'addresses' => [], 'error' => 'The DNS test domain is invalid.'];
         }
-        if (!$this->isSupportedPlatform()) {
+        if (! $this->isSupportedPlatform()) {
             return ['operational' => false, 'latency_ms' => null, 'addresses' => [], 'error' => 'DNS probing requires Windows.'];
         }
 
@@ -201,8 +209,10 @@ POWERSHELL;
         $addresses = $decoded['addresses'] ?? [];
         if (is_string($addresses)) $addresses = [$addresses];
 
-        $addresses = array_values(array_unique(array_filter((array) $addresses,
-            fn ($address) => is_string($address) && filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false)));
+        $addresses = array_values(array_unique(array_filter(
+            (array) $addresses,
+            fn ($address) => is_string($address) && filter_var($address, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false
+        )));
         $measured = is_array($decoded) && is_bool($decoded['operational'] ?? null)
             && $decoded['operational'] === (count($addresses) > 0);
         $operational = $measured && $decoded['operational'];
@@ -293,12 +303,15 @@ POWERSHELL;
     {
         $process = null;
         try {
-            if (!is_file($command[0])) {
+            if (! is_file($command[0])) {
                 return ['successful' => false, 'output' => '', 'error' => 'Windows tool was not found: '.$command[0], 'exit_code' => null];
             }
             $systemRoot = dirname($this->windowsTool('cmd.exe'), 2);
-            $process = new Process($command, null,
-                ['SystemRoot' => $systemRoot, 'WINDIR' => $systemRoot, 'ComSpec' => $this->windowsTool('cmd.exe')]);
+            $process = new Process(
+                $command,
+                null,
+                ['SystemRoot' => $systemRoot, 'WINDIR' => $systemRoot, 'ComSpec' => $this->windowsTool('cmd.exe')]
+            );
             $process->setTimeout($timeout);
             $process->run();
             $successful = $process->isSuccessful();
@@ -347,7 +360,8 @@ POWERSHELL;
     {
         $parts = explode(':', trim($target));
         if (count($parts) !== 2) return null;
-        [$host, $port] = $parts; $port = (int) $port;
+        [$host, $port] = $parts;
+        $port = (int) $port;
         if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) === false || $port < 1 || $port > 65535) return null;
         return [$host, $port];
     }

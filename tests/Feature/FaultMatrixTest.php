@@ -35,20 +35,36 @@ class FaultMatrixTest extends TestCase
             case 'adapter_disabled': case 'adapter_disconnected': case 'adapter_unavailable':
                 $frame['configuration'] = array_replace($frame['configuration'], [
                     'adapter_available' => false, 'adapter_state' => match ($fault) {
-                        'adapter_disabled' => 'disabled', 'adapter_disconnected' => 'disconnected', default => 'missing'},
+                        'adapter_disabled' => 'disabled', 'adapter_disconnected' => 'disconnected', default => 'missing'
+                    },
                     'local_ip' => null, 'gateway_ip' => null]);
                 break;
-            case 'dhcp_issue': $frame['configuration']['local_ip'] = '169.254.12.34'; $frame['configuration']['gateway_ip'] = null; break;
-            case 'ip_configuration_missing': $frame['configuration']['local_ip'] = null; $frame['configuration']['gateway_ip'] = null; break;
-            case 'gateway_missing': $frame['configuration']['gateway_ip'] = null; break;
-            case 'gateway_unreachable': $frame['gateway'] = false; $frame['internet'] = false; break;
-            case 'gateway_ping_unanswered': $frame['gateway'] = false; break;
-            case 'wan_unreachable': $frame['internet'] = false; break;
-            case 'dns_failure': $frame['dns'] = false; break;
-            case 'high_latency': $frame['latency'] = 150; break;
-            case 'static_configuration': $frame['configuration']['address_source'] = 'static'; $frame['configuration']['gateway_ip'] = null; break;
-            case 'configuration_unreadable': $frame['configuration']['error'] = 'Fixture timeout'; break;
-            case 'unsupported_platform': $frame['configuration']['supported'] = false; break;
+            case 'dhcp_issue': $frame['configuration']['local_ip'] = '169.254.12.34';
+                $frame['configuration']['gateway_ip'] = null;
+                break;
+            case 'ip_configuration_missing': $frame['configuration']['local_ip'] = null;
+                $frame['configuration']['gateway_ip'] = null;
+                break;
+            case 'gateway_missing': $frame['configuration']['gateway_ip'] = null;
+                break;
+            case 'gateway_unreachable': $frame['gateway'] = false;
+                $frame['internet'] = false;
+                break;
+            case 'gateway_ping_unanswered': $frame['gateway'] = false;
+                break;
+            case 'wan_unreachable': $frame['internet'] = false;
+                break;
+            case 'dns_failure': $frame['dns'] = false;
+                break;
+            case 'high_latency': $frame['latency'] = 150;
+                break;
+            case 'static_configuration': $frame['configuration']['address_source'] = 'static';
+                $frame['configuration']['gateway_ip'] = null;
+                break;
+            case 'configuration_unreadable': $frame['configuration']['error'] = 'Fixture timeout';
+                break;
+            case 'unsupported_platform': $frame['configuration']['supported'] = false;
+                break;
         }
         return $frame;
     }
@@ -250,23 +266,29 @@ class FaultScenarioProbe extends NetworkProbeService
     public array $targets = [];
     public array $probes = [];
 
-    public function __construct(private array $frames) {}
+    public function __construct(private array $frames)
+    {
+    }
+
     public function collectConfiguration(?string $interfaceName = null, ?float $configurationTimeout = null): array
     {
         $this->current = array_shift($this->frames) ?? throw new \RuntimeException('Unexpected extra fault reading.');
         $this->targets[] = $interfaceName;
         return $this->current['configuration'];
     }
+
     public function probeGateway(?string $gatewayIp): array
     {
         $this->probes[] = 'gateway';
         return ['measured' => $this->current['gateway_measured'] ?? true, 'reachable' => $this->current['gateway'], 'latency_ms' => $this->current['gateway'] ? $this->current['latency'] : null, 'error' => null];
     }
+
     public function probeInternet(array $targets): array
     {
         $this->probes[] = 'internet';
         return ['reachable' => $this->current['internet'], 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null];
     }
+
     public function probeDns(string $domain): array
     {
         $this->probes[] = 'dns';

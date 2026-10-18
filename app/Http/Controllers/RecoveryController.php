@@ -57,5 +57,4 @@ class RecoveryController extends Controller
             'message' => $recovery->outcomeSummary(),
         ]);
     }
-
 }

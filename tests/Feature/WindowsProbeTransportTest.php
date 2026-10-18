@@ -65,8 +65,16 @@ class WindowsProbeTransportTest extends TestCase
     {
         return new class($reply) extends NetworkProbeService {
             public array $commands = [];
-            public function __construct(private array $reply) {}
-            public function isSupportedPlatform(): bool { return true; }
+
+            public function __construct(private array $reply)
+            {
+            }
+
+            public function isSupportedPlatform(): bool
+            {
+                return true;
+            }
+
             protected function runProcess(array $command, float $timeout): array
             {
                 $this->commands[] = compact('command', 'timeout');

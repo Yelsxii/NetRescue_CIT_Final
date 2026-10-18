@@ -75,7 +75,8 @@ class AutomaticRecoveryTest extends TestCase
     public function test_one_dashboard_post_retries_an_unread_followup_and_verifies_with_monitoring_paused(): void
     {
         $this->readings($this->disabled(), $this->disabled(), $this->unread(), $this->healthy(['reader' => 'target_snapshot']));
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $this->get('/')->assertSee('name="return_to" value="dashboard"', false);
         $this->post('/incidents/'.$incident->id.'/recover', ['return_to' => 'dashboard'])
             ->assertRedirect('/')->assertSessionHas('toast.title', 'Recovery verified');
@@ -101,9 +102,14 @@ class AutomaticRecoveryTest extends TestCase
 
     public function test_reconnecting_address_is_rechecked_automatically_until_a_usable_address_arrives(): void
     {
-        $this->readings($this->disabled(), $this->disabled(),
-            $this->healthy(['local_ip' => null, 'gateway_ip' => null]), $this->healthy());
-        $incident = $this->opened(); $this->command();
+        $this->readings(
+            $this->disabled(),
+            $this->disabled(),
+            $this->healthy(['local_ip' => null, 'gateway_ip' => null]),
+            $this->healthy()
+        );
+        $incident = $this->opened();
+        $this->command();
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertTrue($result->success);
         $this->assertSame('healthy', $result->afterHealthCheck->diagnosis_code);
@@ -114,7 +120,8 @@ class AutomaticRecoveryTest extends TestCase
     public function test_three_unread_followups_stop_without_repeating_the_command_or_claiming_recovery(): void
     {
         $this->readings($this->disabled(), $this->disabled(), $this->unread(), $this->unread(), $this->unread());
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertFalse($result->success);
         $this->assertSame('completed', $result->execution_status);
@@ -130,7 +137,8 @@ class AutomaticRecoveryTest extends TestCase
     public function test_access_denied_with_a_readable_disabled_adapter_finishes_without_reconnect_retries(): void
     {
         $this->readings($this->disabled(), $this->disabled(), $this->disabled());
-        $incident = $this->opened(); $this->command(false);
+        $incident = $this->opened();
+        $this->command(false);
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertFalse($result->success);
         $this->assertSame('failed', $result->execution_status);
@@ -141,7 +149,8 @@ class AutomaticRecoveryTest extends TestCase
     public function test_a_different_adapter_never_verifies_the_target_or_triggers_extra_readings(): void
     {
         $this->readings($this->disabled(), $this->disabled(), $this->healthy(['interface_name' => 'Ethernet']));
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertFalse($result->success);
         $this->assertSame('adapter_changed', $result->verification_status);
@@ -162,7 +171,8 @@ class AutomaticRecoveryTest extends TestCase
         $probe->shouldReceive('probeInternet')->once()->andReturn(['reachable' => true, 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null]);
         $probe->shouldReceive('probeDns')->once()->andReturn(['operational' => true, 'latency_ms' => 30, 'addresses' => ['93.184.215.14'], 'error' => null]);
         $this->app->instance(NetworkProbeService::class, $probe);
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $result = app(RecoveryService::class)->attempt($incident);
         $this->assertTrue($result->success);
         $this->assertSame('Wi-Fi', data_get($result->beforeHealthCheck->probe_meta, 'requested_interface_name'));
@@ -172,21 +182,27 @@ class AutomaticRecoveryTest extends TestCase
 
     public function test_an_existing_repair_lock_blocks_a_second_command(): void
     {
-        $this->readings($this->disabled()); $incident = $this->opened();
-        $runner = Mockery::mock(RecoveryCommandRunner::class); $runner->shouldNotReceive('run');
+        $this->readings($this->disabled());
+        $incident = $this->opened();
+        $runner = Mockery::mock(RecoveryCommandRunner::class);
+        $runner->shouldNotReceive('run');
         $this->app->instance(RecoveryCommandRunner::class, $runner);
-        $lock = Cache::lock('netrescue:repair:'.$incident->device_id, 60); $this->assertTrue($lock->get());
+        $lock = Cache::lock('netrescue:repair:'.$incident->device_id, 60);
+        $this->assertTrue($lock->get());
         try {
             $this->post('/incidents/'.$incident->id.'/recover')
                 ->assertSessionHas('toast.message', fn ($text) => str_contains($text, 'already running'));
             $this->assertSame(0, RecoveryAction::count());
-        } finally { $lock->release(); }
+        } finally {
+            $lock->release();
+        }
     }
 
     public function test_the_repair_returns_to_incident_details_and_does_not_accept_an_external_return_url(): void
     {
         $this->readings($this->disabled(), $this->disabled(), $this->healthy());
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $this->post('/incidents/'.$incident->id.'/recover', ['return_to' => 'https://example.com'])
             ->assertRedirect('/incidents/'.$incident->id);
         $this->assertSame(1, data_get(RecoveryAction::sole()->afterHealthCheck->probe_meta, 'recovery_verification.attempt'));
@@ -195,7 +211,8 @@ class AutomaticRecoveryTest extends TestCase
     public function test_a_timed_out_command_retains_unknown_completion_and_automatically_observes_later_recovery(): void
     {
         $this->readings($this->disabled(), $this->disabled(), $this->unread(), $this->healthy());
-        $incident = $this->opened(); $this->command(false, true);
+        $incident = $this->opened();
+        $this->command(false, true);
         $this->post('/incidents/'.$incident->id.'/recover')
             ->assertRedirect('/incidents/'.$incident->id)
             ->assertSessionHas('toast.title', 'Recovery observed; repair not verified');
@@ -224,7 +241,8 @@ class AutomaticRecoveryTest extends TestCase
 
     public function test_the_existing_nr27_timeout_is_described_as_uncertain_without_rewriting_it(): void
     {
-        $this->readings($this->disabled()); $incident = $this->opened();
+        $this->readings($this->disabled());
+        $incident = $this->opened();
         $before = $incident->latestHealthCheck;
         $after = $before->replicate();
         $after->fill(['interface_name' => 'Ethernet', 'diagnosis_code' => 'adapter_disconnected',
@@ -257,7 +275,8 @@ class AutomaticRecoveryTest extends TestCase
         $probe->shouldReceive('probeDns')->once()->andReturn(['operational' => true, 'latency_ms' => 30, 'addresses' => ['93.184.215.14'], 'error' => null]);
         $this->app->instance(NetworkProbeService::class, $probe);
         $incident = $this->opened();
-        $runner = Mockery::mock(RecoveryCommandRunner::class); $runner->shouldNotReceive('run');
+        $runner = Mockery::mock(RecoveryCommandRunner::class);
+        $runner->shouldNotReceive('run');
         $this->app->instance(RecoveryCommandRunner::class, $runner);
         $this->post('/incidents/'.$incident->id.'/retest')->assertRedirect('/incidents/'.$incident->id);
         $this->assertSame(0, RecoveryAction::count());
@@ -276,7 +295,8 @@ class AutomaticRecoveryTest extends TestCase
         $probe->shouldReceive('probeInternet')->once()->andReturn(['reachable' => true, 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null]);
         $probe->shouldReceive('probeDns')->once()->andReturn(['operational' => true, 'latency_ms' => 30, 'addresses' => [], 'error' => null]);
         $this->app->instance(NetworkProbeService::class, $probe);
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $action = app(RecoveryService::class)->attempt($incident);
         $this->assertTrue($action->success);
         $first = $action->earlierVerificationChecks()->sole();
@@ -298,7 +318,8 @@ class AutomaticRecoveryTest extends TestCase
         $probe->shouldReceive('probeInternet')->once()->andReturn(['reachable' => true, 'latency_ms' => 20, 'target' => '1.1.1.1:443', 'error' => null]);
         $probe->shouldReceive('probeDns')->once()->andReturn(['operational' => true, 'latency_ms' => 30, 'addresses' => [], 'error' => null]);
         $this->app->instance(NetworkProbeService::class, $probe);
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $action = app(RecoveryService::class)->attempt($incident);
         $this->assertTrue($action->success);
         $this->assertEquals(20.0, data_get($action->afterHealthCheck->probe_meta, 'recovery_verification.configuration_timeout_seconds'));
@@ -307,7 +328,8 @@ class AutomaticRecoveryTest extends TestCase
     public function test_a_prior_twenty_second_timeout_is_visible_without_changing_verified_history(): void
     {
         $this->readings($this->disabled(), $this->disabled(), $this->unread(), $this->healthy());
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $action = app(RecoveryService::class)->attempt($incident);
         $first = $action->earlierVerificationChecks()->sole();
         $meta = $first->probe_meta;
@@ -339,13 +361,18 @@ class AutomaticRecoveryTest extends TestCase
     public function test_earlier_readings_use_exact_ids_and_exclude_another_computer(): void
     {
         $this->readings($this->disabled(), $this->disabled(), $this->unread(), $this->healthy());
-        $incident = $this->opened(); $this->command();
+        $incident = $this->opened();
+        $this->command();
         $action = app(RecoveryService::class)->attempt($incident);
         $first = $action->earlierVerificationChecks()->sole();
-        $neighbor = $first->replicate(); $neighbor->save();
+        $neighbor = $first->replicate();
+        $neighbor->save();
         $otherDevice = Device::localHost()->replicate();
-        $otherDevice->fill(['device_uuid' => 'other-verification-fixture', 'is_local' => false]); $otherDevice->save();
-        $foreign = $first->replicate(); $foreign->device_id = $otherDevice->id; $foreign->save();
+        $otherDevice->fill(['device_uuid' => 'other-verification-fixture', 'is_local' => false]);
+        $otherDevice->save();
+        $foreign = $first->replicate();
+        $foreign->device_id = $otherDevice->id;
+        $foreign->save();
         $after = $action->afterHealthCheck;
         $meta = $after->probe_meta;
         $meta['recovery_verification']['previous_check_ids'] = [$first->id, (string) $first->id, $foreign->id, $after->id, 'bad', -1];

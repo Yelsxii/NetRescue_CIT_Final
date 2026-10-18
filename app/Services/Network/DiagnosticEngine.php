@@ -8,7 +8,7 @@ class DiagnosticEngine
 {
     public function diagnose(array $metrics, int $latencyWarningMs): NetworkDiagnosis
     {
-        if (!($metrics['platform_supported'] ?? true)) {
+        if (! ($metrics['platform_supported'] ?? true)) {
             return new NetworkDiagnosis(
                 code: 'unsupported_platform',
                 title: 'Unsupported Operating System',
@@ -67,7 +67,7 @@ class DiagnosticEngine
             );
         }
 
-        if (!($metrics['adapter_available'] ?? false)) {
+        if (! ($metrics['adapter_available'] ?? false)) {
             return new NetworkDiagnosis(
                 code: 'adapter_unavailable',
                 title: 'No Active Network Adapter',
@@ -143,7 +143,7 @@ class DiagnosticEngine
             );
         }
 
-        if (!($metrics['gateway_reachable'] ?? false) && !($metrics['internet_reachable'] ?? false)) {
+        if (! ($metrics['gateway_reachable'] ?? false) && ! ($metrics['internet_reachable'] ?? false)) {
             if ($this->usesManualAddress($metrics)) {
                 return $this->manualAddress($metrics);
             }
@@ -162,7 +162,7 @@ class DiagnosticEngine
             );
         }
 
-        if (!($metrics['internet_reachable'] ?? false)) {
+        if (! ($metrics['internet_reachable'] ?? false)) {
             return new NetworkDiagnosis(
                 code: 'wan_unreachable',
                 title: 'Possible WAN / ISP Connectivity Issue',
@@ -176,7 +176,7 @@ class DiagnosticEngine
             );
         }
 
-        if (!($metrics['dns_operational'] ?? false)) {
+        if (! ($metrics['dns_operational'] ?? false)) {
             return new NetworkDiagnosis(
                 code: 'dns_failure',
                 title: 'DNS Resolution Failure',
@@ -192,7 +192,7 @@ class DiagnosticEngine
             );
         }
 
-        if (!($metrics['gateway_reachable'] ?? false)) {
+        if (! ($metrics['gateway_reachable'] ?? false)) {
             return new NetworkDiagnosis(
                 code: 'gateway_ping_unanswered',
                 title: 'Gateway Ping Unanswered; Internet Available',

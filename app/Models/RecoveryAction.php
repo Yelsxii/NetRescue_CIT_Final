@@ -23,10 +23,25 @@ class RecoveryAction extends Model
         ];
     }
 
-    public function device(): BelongsTo { return $this->belongsTo(Device::class); }
-    public function incident(): BelongsTo { return $this->belongsTo(Incident::class); }
-    public function beforeHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'before_health_check_id'); }
-    public function afterHealthCheck(): BelongsTo { return $this->belongsTo(HealthCheck::class, 'after_health_check_id'); }
+    public function device(): BelongsTo
+    {
+        return $this->belongsTo(Device::class);
+    }
+
+    public function incident(): BelongsTo
+    {
+        return $this->belongsTo(Incident::class);
+    }
+
+    public function beforeHealthCheck(): BelongsTo
+    {
+        return $this->belongsTo(HealthCheck::class, 'before_health_check_id');
+    }
+
+    public function afterHealthCheck(): BelongsTo
+    {
+        return $this->belongsTo(HealthCheck::class, 'after_health_check_id');
+    }
 
     public function earlierVerificationChecks(): \Illuminate\Database\Eloquent\Collection
     {
@@ -41,6 +56,7 @@ class RecoveryAction extends Model
         return HealthCheck::where('device_id', $this->device_id)->whereIn('id', $ids)
             ->orderBy('checked_at')->orderBy('id')->get();
     }
+
     public function commandTimedOut(): bool
     {
         if ($this->execution_status === 'timed_out') return true;
@@ -49,6 +65,7 @@ class RecoveryAction extends Model
         return $this->execution_status === 'failed' && $this->command_exit_code === null
             && preg_match('/\AThe process ".*" exceeded the timeout of [0-9.]+ seconds\./s', (string) $this->error_message) === 1;
     }
+
     public function outcomeSummary(): string
     {
         if ($this->execution_status === 'skipped') {
@@ -105,6 +122,7 @@ class RecoveryAction extends Model
         }
         return 'Repair success was not verified. This record does not separately confirm command completion.';
     }
+
     public function executionLabel(): string
     {
         if ($this->commandTimedOut()) return 'Command timed out; completion unconfirmed';
