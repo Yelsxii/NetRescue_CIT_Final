@@ -1,12 +1,12 @@
 # NetRescue running demo test log
 
-This is the running record of demonstrated commands and procedures. Demo 005 is prepared below and remains pending until its manual test results are recorded. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
+This is the running record of demonstrated commands and procedures. Demo 008 records Fault 7's DNS-specific detection, completed but ineffective cache flush, and healthy closing Check 690. Demo 007 now includes Fault 6's later healthy closing Check 686. Demo 006 records the Fault 5 repeat with the updated repair buttons and follow-up popup. Demo 005's separate Fault 4 evidence remains pending. Keep earlier successes, failed attempts, and unresolved cleanup items visible. The [fault simulation testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) contains the complete scenario list.
 
 Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requires command completion and successful automatic verification on the same adapter. Record teardown confirmation separately from repair success.
 
 **Repair UI update, 18 October 2026:** current buttons use action-specific Try… labels and every follow-up request opens a review dialog before confirmation. Historical entries retain the labels shown during their original runs. Use the [current testing guide](FAULT_SIMULATION_TESTING_GUIDE.md) for new demonstrations; see the [repair UI verification report](REPAIR_UX_QA_2026-10-18.md) for the isolated interface checks. This update does not rewrite stored incidents or earlier repair outcomes.
 
-**Preferred live demo procedure:** inject one fault in PowerShell without `-ExerciseApp`, click **Run Check** in the browser, click **Run repair** once if offered, and let the application verify it. For time-sensitive NoIpv4, request repair promptly from the dashboard and inspect the detailed incident afterward. Restore the QA run, then click a closing **Run Check** and confirm task/rule cleanup. The runner's prerequisite baseline Check and safety rollback still run automatically. Demos 001 and 003 used the browser procedure; Demo 002 retains an automated success.
+**Preferred live demo procedure:** inject one fault in PowerShell without `-ExerciseApp`, click **Run Check** in the browser, click the named **Try…** repair action once if offered, and let the application verify it. For time-sensitive NoIpv4, request repair promptly from the dashboard and inspect the detailed incident afterward. Restore the QA run, then click a closing **Run Check** and confirm task/rule cleanup. The runner's prerequisite baseline Check and safety rollback still run automatically. Demos 001 and 003 used the browser procedure; Demo 002 retains an automated success.
 
 ## Demonstration index
 
@@ -17,6 +17,9 @@ Dates and times below use **Asia/Manila (UTC+08:00)**. A successful repair requi
 | 003 | 18 October 2026 | DHCP IPv4 lease released (`NoIpv4`) — browser-operated | NR-00059 / request 38 | Verified release/renewal; exit 0; Network Operational | Restore completed; no QA tasks/rules; post-Restore browser Check 647 healthy |
 | 004 | 18 October 2026 | Missing default gateway (`GatewayMissing`) — user-reported browser procedure | NR-00062 / request 41 | Verified renewal; exit 0; gateway restored; Network Operational | Saved state confirms Restore; elevated task/rule queries empty and fresh host DNS/TCP pass; separate post-Restore app Check pending |
 | 005 | Pending | Gateway ping blocked (`GatewayPingBlocked`) — planned manual demo | Not recorded | Expected: detection only, no repair; result pending | Pending |
+| 006 | 18 October 2026 | Gateway and external targets blocked (`GatewayTestsBlocked`) — browser-operated repeat with updated repair UI | NR-00065 / requests 44 and 45 | Renewal and restart completed, exit 0; both correctly remained unverified; follow-up popup reported by operator | Operator reports restored connection; closing Check 683 healthy; exact Restore output and elevated cleanup evidence not captured |
+| 007 | 18 October 2026 | External targets blocked (`WanTargetsBlocked`) — operator-reported browser procedure | NR-00066 / no repair | Expected detection and manual guidance; gateway passed, Internet failed, DNS skipped | Exact Restore output supplied; QA rule removed; host TCP/DNS pass; subsequent healthy Check 686 closed incident as observed recovery; separate elevated cleanup listing not captured |
+| 008 | 18 October 2026 | Unreachable manual DNS servers (`DnsServer`) — operator-reported browser procedure | NR-00067 / request 46 | Cache flush completed, exit 0; correctly stayed unverified; manual DNS guidance | Check 690 healthy; original reported DNS server list returned; fresh host gateway/TCP/DNS pass; exact Restore output and protected per-family restore report not captured |
 
 ## Demo 001 — disabled Wi-Fi adapter repaired successfully
 
@@ -503,9 +506,190 @@ Inject with plain `Apply -Fault GatewayPingBlocked`, without `-ExerciseApp`, the
 
 Complete this entry only with the actual test results. A pass requires the expected diagnosis, no unnecessary repair, successful restoration, a healthy closing Check, and confirmed cleanup. If the intended condition is not reproduced, retain that outcome and its state path rather than marking it passed.
 
+## Demo 006 — Fault 5 repeat with named repair buttons and follow-up popup
+
+**Result: expected detection and honest ineffective-repair reporting passed; the operator confirmed the popup appeared and connectivity was restored.** Read-only inspection of the existing records confirms NR-00065, both completed but unverified commands, and healthy closing Check 683. This is not a successful renewal/restart repair: the deliberate firewall block persisted through both commands, and the incident closed as **observed recovery**, not verified repair.
+
+### Manual procedure and supplied display evidence
+
+Keep the administrator PHP server and MySQL running, Automatic checks paused, and the previous QA run restored. In the prepared Administrator runner window, the manual scenario command is:
+
+```powershell
+& $qaRunner @qaOptions -Mode Apply -Fault GatewayTestsBlocked
+```
+
+Leave off `-ExerciseApp`. Save the new StatePath printed after **Rollback armed**, click **Run Check**, then **Try renewing address** once. If **Try restarting adapter** is offered, review **Review another repair attempt**. For a minimal repeat of this controlled firewall demo, Cancel and Restore; restarting cannot remove the injected block.
+
+In this actual repeat, request 45 records that the operator also proceeded with the adapter restart after the renewal. Do not describe this run as a cancelled second action. The operator reported that the popup appeared; the supplied screenshots show the earlier detection and initial renewal guidance, rather than the popup itself.
+
+The two supplied screenshots, `Screenshot 2026-10-18 170238.png` and `Screenshot 2026-10-18 170246.png`, show:
+
+- **Possible Local Gateway / Path Issue**, with Wi-Fi, IPv4 `192.168.1.5`, and gateway `192.168.1.1` retained.
+- Gateway and Internet probes failing, with name lookup explicitly **Not tested**.
+- **Try renewing address**, its DHCP purpose, the warning that renewal cannot remove a firewall block, and automatic precheck/verification guidance.
+
+These displays match the intended scenario. The screenshots do not by themselves establish command results or final recovery; the stored records below supply that evidence.
+
+### Recorded sequence
+
+All times are on **18 October 2026, Asia/Manila**.
+
+| Stage | Check / request | Time | Observed result |
+| --- | --- | --- | --- |
+| Healthy baseline | Check 668 | 5:01:44 PM | Gateway, Internet, and DNS passed; Network Operational |
+| Browser Run Check after injection | Check 669 / NR-00065 | 5:02:28 PM | `gateway_unreachable`; gateway/Internet failed; DNS skipped; reading 3.787 s |
+| Renewal precheck | Check 670 | 5:02:53 PM | Same adapter and condition; reading 3.782 s |
+| Renewal result | Request 44 / Checks 671–673 | 5:02:53–5:03:11 PM | `renew_dhcp`; completed, exit 0; all 3 follow-up readings retained the fault; `not_verified`, success false |
+| Restart precheck | Check 674 | 5:03:44 PM | Same adapter and condition; reading 3.567 s |
+| Restart result | Request 45 / Checks 675–682 | 5:03:44–5:05:05 PM | `restart_adapter`; completed, exit 0; all 8 follow-up readings retained the fault; `not_verified`, success false |
+| Closing browser Check | Check 683 | 5:09:35 PM | Network Operational; gateway/Internet/DNS passed; incident Closed as `observed_recovery` |
+
+The restart's 8 follow-up readings are automatic verification within its reconnect window, not 8 restart commands. Both repairs correctly avoided claiming that their command completion proved recovery.
+
+| Timing | Renewal request 44 | Restart request 45 | Scope |
+| --- | ---: | ---: | --- |
+| Command phase | 5.763 s | 19.702 s | Stored `command_ms`; includes process overhead |
+| Verification phase | 12.807 s | 61.094 s | Stored `elapsed_ms`, including follow-up readings and retry waits |
+| Final follow-up reading | 3.551 s | 3.530 s | Already included in verification; do not add again |
+| Command time limit | 35 s | 60 s | Configured limits, not actual command durations |
+
+The restart verification ended at `reconnect_window_elapsed` after its configured 60-second window; the measured phase includes finishing/processing the readings. No browser click-to-response timing was captured. Command and verification phases exclude the preceding precheck.
+
+### Restored connectivity and cleanup evidence
+
+Closing Check **683** recorded Wi-Fi Up with IPv4 `192.168.1.5`, gateway `192.168.1.1`, gateway response **3.50 ms**, external TCP response **22.99 ms**, and successful `www.google.com` lookup **1,259.88 ms**. DNS answered but exceeded the 100 ms warning threshold; that is a slow-answer warning, not a lookup failure. The whole closing reading took **6.694 s**. Both commands had finished several minutes earlier without clearing the condition, so the incident correctly attributes the later healthy observation to a Check rather than a verified repair.
+
+The operator reports connectivity restored. The exact terminal Restore output and this run's printed StatePath were not supplied. The agent could list the latest QA run directory but could not read its protected state file from its non-administrator Windows process. Agent task/rule queries returned no entries, but an Administrator-terminal cleanup listing is still required for a complete acceptance evidence set. Do not claim an independently verified Restore timestamp, watchdog/manual-restore cause, or elevated cleanup from these observations.
+
+For any future repeat, restore only its newly printed saved state:
+
+```powershell
+$fault5StatePath = 'C:\ProgramData\NetRescueQA\<that-run-id>\state.json'
+& $qaRunner -Mode Restore -StatePath $fault5StatePath
+```
+
+Then obtain a fresh healthy browser Check and run the `NetRescueQA-*` task/rule queries from Administrator PowerShell. Do not inject the next fault while any previous QA task/rule remains. No additional Restore for this historical run was executed while documenting it.
+
+**Verdict:** Fault 5 detection, named initial action, operator-observed popup, both ineffective-command results, and later restored connectivity are confirmed at the evidence levels above. Exact saved-state Restore and elevated cleanup evidence remain uncaptured. Existing `.env` hash still matches the earlier preservation baseline. Documentation used raw SELECTs inside a read-only MySQL transaction; no new application Check, repair, fault, setting change, history rewrite, or database reset was performed.
+
+## Demo 007 — Fault 6 detected; saved-state Restore and host connectivity confirmed
+
+**Result: expected external-target failure was detected without an unsupported repair; the operator's Restore completed and fresh host TCP/DNS checks subsequently passed.** A closing application Check was not yet recorded at the initial capture. Later inspection confirmed healthy Check 686 and the Closed incident; see the follow-up below.
+
+### Browser-operated simulation and recorded diagnosis
+
+With the administrator PHP server and MySQL running, Automatic checks paused, and the previous test restored, the manual scenario command is:
+
+```powershell
+& $qaRunner @qaOptions -Mode Apply -Fault WanTargetsBlocked
+```
+
+Leave off `-ExerciseApp`, retain the newly printed StatePath, then click **Run Check** in NetRescue. The operator reports the manual scenario was successful; raw read-only database inspection confirms the following sequence on **18 October 2026, Asia/Manila**:
+
+| Stage | Check / time | Recorded result |
+| --- | --- | --- |
+| Healthy baseline | 684 / 5:17:02 PM | Network Operational; gateway 2.00 ms, external TCP 19.03 ms, DNS answered in 292.24 ms; reading 2.112 s |
+| Browser diagnosis | 685 / 5:17:28 PM | **Possible WAN / ISP Connectivity Issue** (`wan_unreachable`), NR-00066; reading 3.347 s |
+| Adapter/configuration | Check 685 | Wi-Fi Up; DHCP IPv4 `192.168.1.5`; gateway `192.168.1.1` retained |
+| Probe results | Check 685 | Gateway passed, 3.00 ms; external targets `1.1.1.1:443` and `8.8.8.8:53` failed; DNS **skipped / Not tested** |
+| Repair availability | NR-00066 | No recovery action; manual router/network administrator guidance; no repair request recorded for this incident |
+| Closing application Check | Pending at capture | Latest stored reading remained 685; incident still Active because no post-Restore browser Check had run |
+
+DNS's stored false boolean in Check 685 is not an independently measured DNS failure: `probe_states.dns` is `skipped`. The baseline DNS lookup answered above the 100 ms warning threshold, which is a speed warning rather than a failed lookup. No repair command, popup, command duration, or repair verification duration applies to this detection-only scenario. The observations do not prove an ISP outage.
+
+### Restoration sequence and exact successful command
+
+The initial operator report said connectivity was restored. Before the supplied Restore transcript, independent host checks at **5:20 PM** still found the run-owned outbound rule `NetRescueQA-e2497f0e58d1432bb96f686346048b1c-block` enabled for `1.1.1.1` and `8.8.8.8`. Gateway ping and DNS succeeded, but the external TCP target was still blocked. General browsing can work while these particular targets remain blocked; that earlier state was not complete teardown.
+
+The operator then supplied this exact successful saved-state Restore:
+
+```powershell
+$fault6StatePath = 'C:\ProgramData\NetRescueQA\e2497f0e58d1432bb96f686346048b1c\state.json'
+& $qaRunner -Mode Restore -StatePath $fault6StatePath
+```
+
+```text
+Restored QA changes for Wi-Fi. Run NetRescue Check to verify connectivity; rollback command completion alone is not proof.
+```
+
+Subsequent read-only inspection confirmed that exact QA rule was absent. At **5:23:03 PM**, fresh independent host tests on **LIZHARY-CLIENT** successfully connected to `1.1.1.1:443` and resolved `www.google.com`. QA task/rule queries returned no entries from the agent process. The agent was not running as Windows Administrator, so a separate elevated task/rule listing remains uncaptured; the protected state file's `RestoredAt` was not read. The operator transcript establishes that the explicit Restore command completed; it does not provide a measured Restore duration.
+
+### Initially pending browser step
+
+Click **Run Check** after Restore. Require **Network Operational**, gateway/Internet/DNS passing, and NR-00066 closed as observed recovery without a repair attribution. Record that Check ID when available. Confirm no QA tasks/rules remain from Administrator PowerShell before starting Fault 7. The next injection also requires its own fresh healthy baseline.
+
+### Follow-up closing application evidence — recorded before Fault 7
+
+Later read-only inspection found Check **686**, recorded at **5:26:05 PM**, healthy on Wi-Fi: gateway **5.50 ms**, external TCP **46.37 ms**, and successful DNS lookup **367.49 ms**; whole reading **1.936 s**. NR-00066 closed at that time as `observed_recovery`, with no repair request or repair attribution. The DNS answer was slow relative to the warning threshold, not failed.
+
+Check 686 also supplies Fault 7's healthy pre-injection baseline. Its source is the on-demand `manual` route, which is shared by browser Run Check and the runner's prerequisite baseline Check. The source alone does not establish who initiated that particular reading. The initially missing closing application evidence is now supplied without rewriting the earlier capture or claiming a separate browser click.
+
+**Verdict:** intended Fault 6 diagnosis, correct manual guidance/no repair, explicit saved-state restoration, removal of the observed QA block, subsequent host TCP/DNS connectivity, and healthy closing application evidence are confirmed. A separate elevated cleanup listing remains uncaptured. Documentation used raw SELECTs in a read-only transaction and independent host probes; it did not initiate a fault, application Check, repair, or Restore, or change settings, `.env`, the database, or previous history. The `.env` hash still matches the earlier preservation baseline.
+
+## Demo 008 — Fault 7 DNS failure detected; cache flush correctly unverified; connectivity restored
+
+**Result: the intended DNS-specific condition was detected, one cache flush completed without falsely claiming recovery, and a later healthy Check confirmed restored connectivity.** The operator reports that the manual demonstration succeeded and the connection was restored. Stored evidence confirms NR-00067, request 46, and healthy closing Check 690. This demonstrates truthful handling of an ineffective repair, not a cache flush fixing incorrect manual DNS settings.
+
+### Reusable manual commands
+
+Keep the administrator PHP server and MySQL running, Automatic checks paused, the previous QA run restored, and the existing valid lookup domain unchanged. Use the normal runner setup at the start of the testing guide. Inject only this fault, leaving off `-ExerciseApp`:
+
+```powershell
+& $qaRunner @qaOptions -Mode Apply -Fault DnsServer
+```
+
+Retain the **new StatePath** printed after **Rollback armed**. The runner saves the original DNS settings and arms its default 10-minute rollback before setting unreachable IPv4/IPv6 DNS addresses. Click **Run Check** yourself, expect **DNS Resolution Failure**, then click **Try clearing DNS cache** once. Wait for automatic verification; the manual server addresses remain incorrect, so command completion must not be presented as verified recovery. The next step is manual DNS guidance, without another repair button for this completed-flush outcome.
+
+Restore the run using PowerShell's `&` call operator and its own exact saved path:
+
+```powershell
+& $qaRunner -Mode Restore -StatePath 'C:\ProgramData\NetRescueQA\<this-run-id>\state.json'
+```
+
+The placeholder is the printed path from the current injection, not an older run. Use saved-state restoration rather than a generic reset to automatic DNS; the saved configuration may include manual DNS. Then click **Run Check** and verify task/rule cleanup from Administrator PowerShell. These commands describe the reusable procedure; this repeat's exact injection/Restore terminal transcript and printed StatePath were not supplied.
+
+### Recorded application sequence
+
+All times are on **18 October 2026, Asia/Manila**. The operator reports following the manual procedure; stored `manual` source readings alone cannot distinguish browser clicks from the runner's use of the same on-demand route.
+
+| Stage | Check / request | Time | Recorded result |
+| --- | --- | --- | --- |
+| Healthy pre-injection baseline | Check 686 | 5:26:05 PM | Gateway, Internet, and DNS passed; also closed Fault 6's incident |
+| Fault detected | Check 687 / NR-00067 | 5:26:35 PM | **DNS Resolution Failure** (`dns_failure`); gateway 3.00 ms and external TCP 25.20 ms passed; name lookup failed |
+| Repair precheck | Check 688 | 5:27:20 PM | Same Wi-Fi adapter and DNS failure; configured servers `2001:db8::53` and `192.0.2.53` |
+| Command | Request 46 | 5:27:20 PM | `flush_dns`, stored label **Clear the DNS cache**; `ipconfig.exe /flushdns` completed with exit 0 and native success output |
+| Automatic follow-up | Check 689 | 5:27:33 PM | DNS still failed; gateway/TCP passed; `not_verified`, success false; 1 of 3 allowed readings, stop reason `settled` |
+| Closing on-demand Check | Check 690 | 5:29:16 PM | **Network Operational**; gateway/Internet/DNS passed; NR-00067 closed as `observed_recovery` |
+
+The injected lookup was independently tested and failed: unlike Fault 6, DNS was **not skipped**. Before and after the flush, `dns_source` was `static`. The recorded next step correctly explains that renewal will not replace manual DNS and asks a person to correct the server configuration. The incident's recovery action became null; no second repair was recorded. No popup is expected for that intended handoff. No screenshot of this repeat was supplied, so stored evidence establishes results and available action state rather than a new visual inspection.
+
+### Measured timings
+
+| Measurement | Recorded duration | Scope |
+| --- | ---: | --- |
+| Fault-detection reading | 14.507 s | Check 687's total measurement duration |
+| Pre-repair reading | 12.977 s | Check 688; precedes the repair record's started timestamp |
+| Command phase | 0.272 s | Stored `command_ms` 271.92; includes process overhead |
+| Automatic verification | 12.788 s | Stored `elapsed_ms` 12,788.37; includes the follow-up reading |
+| Follow-up reading | 12.759 s | Check 689; already included in verification, not an extra phase to add |
+| Command time limit | 35 s | Configured maximum, not actual duration |
+| Closing reading | 6.506 s | Check 690 after recovery |
+
+The repair-record timestamp span is approximately 13 seconds, excluding its precheck and HTTP overhead. No browser click-to-response or Restore duration was captured. The 0.272-second flush is command time, not a successful connection-repair time.
+
+### Restored connectivity, DNS evidence, and preservation
+
+Closing Check **690** recorded Wi-Fi Up, IPv4 `192.168.1.5`, gateway `192.168.1.1`, gateway response **2.00 ms**, external TCP response **17.54 ms**, and successful `www.google.com` lookup **1,195.80 ms**. That DNS answer exceeds the 100 ms warning threshold, but it answered successfully. The reported DNS server list returned to the same list as baseline Check 686: `2405:b800:fef:ff00::1`, `2405:b800:fef:ff00::2`, `10.158.254.129`, and `10.158.254.130`.
+
+At **5:30:55 PM**, fresh independent checks on the real Windows host **LIZHARY-CLIENT** confirmed Wi-Fi Up, gateway ping success (**5 ms**), connection to `1.1.1.1:443`, and a successful `www.google.com` lookup. QA task/rule queries returned no entries. The agent's Windows process was not Administrator, so this is not a separately captured elevated cleanup audit.
+
+The exact manual Restore output, saved state, and protected `dns-restored.json` report were not captured for this repeat. The matching reported DNS server lists and healthy connectivity are confirmed; exact per-family automatic/manual modes, manual ordering within each family, Restore timestamp, and manual/watchdog attribution are not independently established from those application readings alone. Preserve this limitation rather than infer complete saved-state verification from a Closed label.
+
+**Verdict:** expected diagnosis, completed but correctly unverified cache flush, appropriate manual DNS handoff, healthy closing application Check, and subsequent host connectivity passed. Exact saved-state/per-family restoration and separate elevated cleanup evidence remain uncaptured. This documentation used read-only database transactions and host probes; it did not run another application Check, fault, repair, or Restore, or change `.env`, settings, database records, or earlier history.
+
 ## Append later demonstrations here
 
-Complete Demo 005 above when its results are available; use Demo 006 for the next new demonstration afterward. Retain all earlier entries. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
+Complete the remaining evidence gaps in earlier entries when available; use Demo 009 for the next demonstration or repeat. Retain all earlier entries. Repeats of the same scenario should retain distinct run/state paths and record IDs. A useful entry contains:
 
 | Field | Fill in for the next demonstration |
 | --- | --- |

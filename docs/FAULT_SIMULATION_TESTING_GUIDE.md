@@ -204,29 +204,84 @@ For the manual Fault 5 demo, click **Run Check** after injection, then **Try ren
 
 If **Try restarting adapter** appears next, it is an optional escalation, not proof that renewal succeeded or a promise that restarting will fix the cause. Clicking it opens **Review another repair attempt**, explaining the earlier result and the brief disconnection. For this controlled firewall test, **Cancel** and use the saved-state Restore instead. After Restore, a fresh healthy Check records observed recovery; it must not credit the earlier ineffective renewal. Do not repeatedly request repairs to force a successful result.
 
+The October 18 repeat is recorded in **Demo 006** of the [running log](DEMO_TEST_LOG.md#demo-006--fault-5-repeat-with-named-repair-buttons-and-follow-up-popup): NR-00065, requests 44 and 45. The operator proceeded with restart in that run; both commands completed but stayed unverified, followed by healthy Check 683 and observed recovery. The popup is operator-confirmed; exact Restore output and elevated cleanup evidence were not captured.
+
 ### F. External test targets blocked — detection and manual guidance
+
+**Fault 6 manual demo.** This temporarily blocks only the configured external test target IPs on the selected adapter. The local gateway should remain reachable. It tests appropriate manual guidance and refusal to offer an unsupported repair; it does not demonstrate or prove an ISP outage.
+
+1. Keep the administrator PHP server and MySQL running, with Automatic checks paused. In Administrator PowerShell, confirm the previous run's QA tasks and firewall rules are absent using section 5. Click **Run Check** in NetRescue and require **Network Operational**, with gateway, Internet, and DNS passing.
+2. In the prepared Administrator runner window, inject one fault without `-ExerciseApp`:
 
 ```powershell
 & $qaRunner @qaOptions -Mode Apply -Fault WanTargetsBlocked
 ```
 
-- **Change:** temporarily blocks the configured external target IPs while retaining the local gateway path.
-- **Diagnosis:** possible WAN/external path or target issue; code `wan_unreachable`.
-- **Repair:** none offered; manual upstream/firewall/target guidance is expected.
-- **Pass:** the result describes the failed observations without claiming a proven ISP outage.
-- **Next:** Restore removes the QA rule; run a closing Check.
+3. Keep the **new StatePath** printed after **Rollback armed**, and wait for **Applied WanTargetsBlocked**. The default safety rollback is due after 10 minutes; complete the browser work and explicit Restore before that deadline.
+4. Click **Run Check** yourself and inspect the new reading:
+
+| Item | Expected result |
+| --- | --- |
+| Diagnosis | **Possible WAN / ISP Connectivity Issue** (`wan_unreachable`); the incident list may say **Internet path failed** |
+| Adapter/configuration | Wi-Fi Up; usable IPv4 and gateway remain present |
+| Gateway probe | Passes; a response time is measured |
+| Internet probe | Configured external TCP tests fail |
+| Name lookup | **Not tested** because the external connectivity prerequisite failed |
+| Repair button / popup | None for this condition; manual guidance is expected |
+| Meaning | The external path or targets could not be reached; these observations do not establish an ISP outage |
+
+Do not use a repair button on an older incident. If gateway also fails, or the fresh reading stays healthy, retain that actual result and restore instead of counting it as the intended Fault 6 pass.
+
+5. Restore this run's saved state in the Administrator runner window:
+
+```powershell
+$fault6StatePath = 'C:\ProgramData\NetRescueQA\<new-fault-6-run-id>\state.json'
+& $qaRunner -Mode Restore -StatePath $fault6StatePath
+```
+
+Replace the placeholder with the exact path printed by this injection. Expect **Restored QA changes for Wi-Fi**. If restoration fails, retain the state/task and follow section 5 before another fault.
+
+6. Click **Run Check** again; require **Network Operational** with gateway, Internet, and DNS passing. Run the section 5 task/rule queries from Administrator PowerShell; both should return no QA entries. Record the new StatePath, baseline/detection/closing Check IDs, incident reference, diagnosis, lack of repair, Restore output, and cleanup results in **Demo 007** of the running log after the test. Repair command/duration are **not applicable**; recovery is observed after cleanup.
+
+The October 18 demonstration is recorded in **Demo 007** of the [running log](DEMO_TEST_LOG.md#demo-007--fault-6-detected-saved-state-restore-and-host-connectivity-confirmed): NR-00066, detected Check 685, explicit Restore output, and subsequent host TCP/DNS connectivity. Later healthy Check **686** closed the incident as observed recovery and supplies the next scenario's baseline; its on-demand source alone does not establish a separate browser click. A separate elevated cleanup listing was not captured. Working websites alone do not establish teardown: this fault blocks only the configured target IPs.
 
 ### G. Unreachable DNS servers — cache flush cannot fix the injected settings
+
+**Fault 7 manual demo.** The runner saves the selected adapter's original IPv4/IPv6 DNS settings, arms rollback, sets unreachable documentation-range DNS servers (`192.0.2.53` and `2001:db8::53`), and clears the cache. This tests a DNS-specific diagnosis and honest reporting that clearing the cache cannot replace incorrect manual server addresses.
+
+1. Keep the administrator PHP server and MySQL running, Automatic checks paused, and a valid lookup name such as the existing `www.google.com` unchanged. Finish the previous Restore and cleanup. Click **Run Check** and require **Network Operational**, with gateway, Internet, and DNS passing.
+2. In the prepared Administrator runner window, inject one fault without `-ExerciseApp`:
 
 ```powershell
 & $qaRunner @qaOptions -Mode Apply -Fault DnsServer
 ```
 
-- **Change:** sets unreachable documentation-range IPv4/IPv6 DNS servers on the selected adapter and clears the cache.
-- **Diagnosis:** DNS resolution failure; code `dns_failure`.
-- **Repair:** request one cache flush. It can complete but cannot correct the injected manual DNS addresses.
-- **Pass:** the repair remains **not verified**, followed by manual DNS correction guidance. Repeating the same ineffective repair should not be offered.
-- **Next:** use Restore to recover the saved DNS settings, including each family's automatic/manual mode and ordered manual server list. Run a closing Check.
+3. Save the **new StatePath** printed after **Rollback armed**, and wait for **Applied DnsServer**. The default safety rollback is due after 10 minutes. Complete the demo and explicit Restore before that deadline.
+4. Click **Run Check** yourself and inspect the fresh reading:
+
+| Item | Expected result |
+| --- | --- |
+| Diagnosis | **DNS Resolution Failure** (`dns_failure`) |
+| Adapter/configuration | Wi-Fi Up; usable IPv4 and gateway retained |
+| Gateway probe | Passes |
+| Internet probe | Configured external TCP connectivity passes |
+| Name lookup | **Fails**; this is a measured lookup failure, not **Not tested** |
+| Initial action | **Try clearing DNS cache** |
+
+5. Click **Try clearing DNS cache** once and wait for automatic verification. The command should complete, but recovery should remain **not verified** while the injected manual DNS addresses remain. Expect wording that this attempt did not clear **DNS Resolution Failure**, followed by guidance to correct the manually set DNS server. In this intended outcome, no second repair button/popup is expected: renewal cannot replace manual DNS. A command error, skipped repair, or already-recovered precheck is a different outcome and must be recorded as such.
+6. Restore the exact saved DNS settings using the current run's printed path. Use the PowerShell `&` call operator:
+
+```powershell
+& $qaRunner -Mode Restore -StatePath 'C:\ProgramData\NetRescueQA\<new-fault-7-run-id>\state.json'
+```
+
+Replace the placeholder with this injection's exact StatePath; do not reuse Fault 6's path. Expect **Restored QA changes for Wi-Fi**. Restore verifies each family's original automatic/manual mode and the exact ordered manual server lists, and writes `dns-restored.json` in that run directory. Do not substitute a generic DNS reset or set everything to automatic; that could overwrite the original manual configuration.
+
+7. Click **Run Check** again and require **Network Operational**, with gateway/Internet/DNS passing. A slow successful lookup is a warning, not a DNS failure. Run the section 5 task/rule queries from Administrator PowerShell and require no QA entries. Record the StatePath, Check IDs, incident reference, command exit code and displayed timings, Restore output, closing Check, and cleanup evidence in **Demo 008** after the test.
+
+If the injected lookup still passes, the fault was not reproduced; restore and retain that outcome. If gateway or Internet also fails, record the different condition and restore rather than counting a DNS-specific pass. If Restore fails, retain the state/task, review `restore-errors.txt`, and retry the same Restore after addressing the error; do not continue testing.
+
+The October 18 demonstration is recorded in **Demo 008** of the [running log](DEMO_TEST_LOG.md#demo-008--fault-7-dns-failure-detected-cache-flush-correctly-unverified-connectivity-restored): NR-00067, request 46, detected Check 687, precheck 688, unverified follow-up 689, and healthy closing Check 690. The cache flush completed in **0.272 s**; verification took **12.788 s**. The reported DNS server list returned to baseline and fresh host connectivity passed. Exact Restore output, protected per-family restore report, and a separate elevated cleanup listing were not captured; do not treat those as supplied evidence.
 
 The firewall cases simulate the test observations. They do not establish a real router or ISP failure. These seven cases exercise successful repair, appropriate refusal to repair, and truthful reporting of an ineffective repair.
 
