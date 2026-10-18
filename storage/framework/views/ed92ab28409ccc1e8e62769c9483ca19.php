@@ -43,14 +43,9 @@ unset($__defined_vars, $__key, $__value); ?>
             <?php $__empty_1 = true; $__currentLoopData = $checks; $__env->addLoop($__currentLoopData); foreach($__currentLoopData as $check): $__env->incrementLoopIndices(); $loop = $__env->getLastLoop(); $__empty_1 = false; ?>
                 <?php
                     $resultTone = $check->diagnosis_code === 'healthy' ? 'ok' : (in_array($check->severity, ['none', 'low'], true) ? 'warn' : 'bad');
-                    $unmeasured = ['code' => 'none', 'label' => '—', 'detail' => 'Not measured'];
-                    if ($check->readingFinished()) {
-                        $gateway = \App\Support\CheckStory::probeMark($check, 'gateway', (int) $warning);
-                        $internet = \App\Support\CheckStory::probeMark($check, 'internet', (int) $warning);
-                        $dns = \App\Support\CheckStory::probeMark($check, 'dns', (int) $warning);
-                    } else {
-                        $gateway = $internet = $dns = $unmeasured;
-                    }
+                    $gateway = \App\Support\CheckStory::probeMark($check, 'gateway', (int) $warning);
+                    $internet = \App\Support\CheckStory::probeMark($check, 'internet', (int) $warning);
+                    $dns = \App\Support\CheckStory::probeMark($check, 'dns', (int) $warning);
                 ?>
                 <tr>
                     <td><?php echo e($check->checked_at->format('g:i A')); ?></td>

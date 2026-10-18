@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NetRescue CIT — Documentation</title>
+    <style>
+        :root { color-scheme: light; }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            color: #0f172a;
+            background: #eef2f7;
+            font: 16px/1.55 "Segoe UI", Arial, sans-serif;
+        }
+        .page {
+            width: min(920px, calc(100% - 32px));
+            margin: 24px auto;
+            padding: 56px 64px;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+        }
+        h1, h2, h3 { line-height: 1.25; letter-spacing: -.02em; }
+        h1 { margin: 0; font-size: 40px; }
+        h2 { margin: 0 0 14px; font-size: 22px; color: #1e3a8a; }
+        h3 { margin: 22px 0 6px; font-size: 17px; }
+        p { margin: 0 0 12px; }
+        ol, ul { margin: 0 0 14px; padding-left: 22px; }
+        li { margin: 4px 0; }
+        .kicker {
+            margin: 0 0 10px;
+            color: #1d4ed8;
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .14em;
+            text-transform: uppercase;
+        }
+        .title-page { min-height: 860px; display: flex; flex-direction: column; justify-content: center; }
+        .rule { width: 88px; height: 4px; margin: 22px 0; background: #1d4ed8; }
+        .meta { margin-top: 28px; }
+        .meta p { margin: 0 0 10px; }
+        .meta span { display: inline-block; min-width: 150px; color: #475569; }
+        .blank { display: inline-block; min-width: 280px; border-bottom: 1px solid #94a3b8; }
+        figure { margin: 16px 0 22px; }
+        figure img { width: 100%; border: 1px solid #e2e8f0; border-radius: 10px; }
+        figcaption { margin-top: 8px; color: #334155; font-size: 14px; }
+        table { width: 100%; border-collapse: collapse; margin: 8px 0 16px; font-size: 14.5px; }
+        th, td { padding: 8px 10px; border: 1px solid #e2e8f0; text-align: left; vertical-align: top; }
+        th { background: #f8fafc; }
+        code { font-family: Consolas, "Courier New", monospace; font-size: .92em; }
+        .note { padding: 12px 14px; border-left: 3px solid #1d4ed8; background: #f8fafc; }
+        @media print {
+            body { background: #fff; }
+            .page { width: auto; margin: 0; padding: 0; box-shadow: none; }
+            .page + .page { page-break-before: always; }
+            a { color: inherit; text-decoration: none; }
+        }
+    </style>
+</head>
+<body>
+
+<section class="page title-page">
+    <p class="kicker">Documentation submission</p>
+    <h1>NetRescue CIT</h1>
+    <p style="margin-top:12px;font-size:20px;color:#334155;">Local network diagnostic and safe recovery utility</p>
+    <div class="rule"></div>
+    <div class="meta">
+        <p><span>Student name</span> <i class="blank"></i></p>
+        <p><span>Course / subject</span> <i class="blank"></i></p>
+        <p><span>Instructor</span> <i class="blank"></i></p>
+        <p><span>Date</span> October 16, 2026</p>
+    </div>
+    <p class="note" style="margin-top:36px;">The project files did not include the examination PDF, so the student name, course, and instructor are left blank. Write those on this page before printing or exporting to PDF.</p>
+</section>
+
+<section class="page">
+    <p class="kicker">B &nbsp; Introduction</p>
+    <h2>Introduction</h2>
+    <p>A computer can lose its network connection for several ordinary reasons. The adapter may be turned off, Windows may not receive a usable address, the gateway may not answer, name lookup may fail, or the connection may answer too slowly. Finding which of those is true usually means repeating the same checks by hand, and a repair command can finish without proving that the original problem has cleared.</p>
+    <p>NetRescue CIT addresses that need on the Windows computer where it is installed. It measures the local adapter and connection, names the first condition that explains the reading, keeps a history of checks and incidents, and can run a small set of approved repairs. After a repair it measures again. A completed command and a recovered connection are recorded as two separate facts.</p>
+</section>
+
+<section class="page">
+    <p class="kicker">C &nbsp; Objectives</p>
+    <h2>Objectives</h2>
+    <h3>General objective</h3>
+    <p>To provide a local application that measures, explains, records, and safely repairs the network connection of the computer on which it runs.</p>
+    <h3>Specific objectives</h3>
+    <ol>
+        <li>Read the active adapter, IPv4 address, gateway, and DNS servers from Windows.</li>
+        <li>Test gateway reachability, external connectivity, name lookup, and response time in a fixed order.</li>
+        <li>Produce one diagnosis for each completed reading, with a severity and a plain-language result.</li>
+        <li>Open an incident when a measured condition requires attention, and close it from a later measurement.</li>
+        <li>Offer only predefined repairs that match the diagnosed condition.</li>
+        <li>Verify each repair with a follow-up check, without treating the command exit code as proof of recovery.</li>
+        <li>Keep the check history, incident history, and monitoring settings for this computer.</li>
+    </ol>
+</section>
+
+<section class="page">
+    <p class="kicker">D &nbsp; Application description</p>
+    <h2>Application description</h2>
+    <p>NetRescue CIT is a local monitoring console for one Windows 10 or Windows 11 computer. Its purpose is to replace repeated manual troubleshooting with a measured record: what was wrong, when it was seen, what repair was requested, and whether a later check showed that the condition had cleared.</p>
+    <p>The intended user is the person administering that computer. The application does not discover or manage other computers on the network. The browser is opened on the same machine, at <code>http://127.0.0.1:8000/</code>.</p>
+    <p>A check begins by asking Windows for the adapter and its configuration. If that reading does not finish, NetRescue stores the incomplete result and does not invent a network fault from it. When the reading finishes, the application tests the gateway first, then the path beyond the gateway, then name lookup. A later test is not treated as a separate failure when an earlier requirement has already failed. Response time is compared with the warning threshold in Settings.</p>
+    <p>The diagnosis updates the dashboard. When the condition should be tracked, NetRescue opens an incident and keeps the opening measurement. The user may run the approved repair for that incident. NetRescue checks the same adapter again before the command. If the condition is already gone, or Windows is no longer on that adapter, the command is not run. Otherwise it runs one predefined action, then takes follow-up readings. The incident closes only when the recorded outcome supports closure. The measurements and command details remain available on the incident.</p>
+</section>
+
+<section class="page">
+    <p class="kicker">E &nbsp; Features</p>
+    <h2>Features</h2>
+    <h3>Dashboard</h3>
+    <p>The dashboard summarizes this computer: whether it is connected, how many of the last 24 hours of checks were healthy, and how many incidents are open. Response-time bars show gateway, Internet, and name lookup against the warning threshold. A current-status panel shows the address, gateway, adapter, and DNS servers. The latest checks appear in a table with colored results.</p>
+    <h3>Manual and scheduled checks</h3>
+    <p>Run Check starts a measurement immediately. When the scheduler is running and automatic checks are enabled, NetRescue also measures at the selected interval. Pausing automatic checks does not remove the manual check.</p>
+    <h3>Ordered diagnosis</h3>
+    <p>Each finished reading receives one result. The order covers an unsupported system, an unfinished reading, a disabled adapter, a missing cable or Wi-Fi link, a missing adapter, an automatic private address, a missing IPv4 address, a missing or unreachable gateway, a manual address that cannot be renewed, an external-path failure, a name-lookup failure, elevated latency, and a healthy connection.</p>
+    <h3>Checks history</h3>
+    <p>The Checks page lists saved measurements. Each row shows the time and the gateway, Internet, and name-lookup result. A test that was not run explains that an earlier requirement did not pass. The Result column uses green, blue, or rose text for a normal, slow, or failed outcome.</p>
+    <h3>Incidents</h3>
+    <p>The Incidents page lists each detected condition with its start time, duration, outcome, repair statement, and open or closed status. Status and severity can be filtered. Opening a row shows the detected condition, one repair result, and the closing measurement when the case is finished. If recovery was not verified, the page states that separately.</p>
+    <h3>Approved repairs and verification</h3>
+    <p>The repairs are limited to enabling the adapter, renewing the address, and clearing the DNS cache. Each one is tied to the condition that calls for it. After the command, NetRescue reads the network again and does not repeat the command during those retries. The incident page can be opened to show the exit code, time limits, before-and-after readings, and the stored command excerpt.</p>
+    <h3>Monitoring settings and appearance</h3>
+    <p>Settings control automatic checks, the interval, the slow-response warning, and the name used for the lookup test. The console has a light theme and a dark theme. The light theme is shown in the screenshots.</p>
+</section>
+
+<section class="page">
+    <p class="kicker">F &nbsp; Tools and technologies</p>
+    <h2>Tools and technologies used</h2>
+    <table>
+        <thead><tr><th>Tool or technology</th><th>Role in NetRescue CIT</th></tr></thead>
+        <tbody>
+            <tr><td>PHP 8.2</td><td>Server-side language for the application and its tests.</td></tr>
+            <tr><td>Laravel 12</td><td>Application framework: routing, MVC structure, validation, Eloquent, Blade, and the scheduler.</td></tr>
+            <tr><td>Blade</td><td>HTML templates for the dashboard, checks, incidents, and settings.</td></tr>
+            <tr><td>HTML and CSS</td><td>Page structure and the visual design, including both themes.</td></tr>
+            <tr><td>JavaScript</td><td>Theme selection, menus, modals, and the incident record window.</td></tr>
+            <tr><td>MySQL</td><td>Stores checks, incidents, recovery evidence, and monitoring settings.</td></tr>
+            <tr><td>Eloquent</td><td>Maps those records to application models.</td></tr>
+            <tr><td>Windows PowerShell</td><td>Reads the adapter configuration and runs the approved repair commands.</td></tr>
+            <tr><td>PHPUnit</td><td>Automated tests for diagnosis, incidents, and repair evidence. Windows calls are mocked in those tests.</td></tr>
+        </tbody>
+    </table>
+    <p>Composer installs the PHP packages. The interface does not depend on a front-end framework. External connectivity is tested against configured addresses; the application does not call a third-party monitoring service.</p>
+</section>
+
+<section class="page">
+    <p class="kicker">G &nbsp; MVC implementation</p>
+    <h2>MVC implementation</h2>
+    <p>Laravel keeps the request path in routes, the screen in Blade views, the stored records in models, and the request handling in controllers. Measurement, diagnosis, and repair rules live in service classes that the controllers call. That keeps the controllers from containing the network rules themselves.</p>
+    <h3>Routes</h3>
+    <p>All console routes use the <code>local.console</code> middleware, so the pages are served for this computer.</p>
+    <table>
+        <thead><tr><th>Method and path</th><th>Name</th><th>Controller action</th></tr></thead>
+        <tbody>
+            <tr><td><code>GET /</code></td><td><code>dashboard</code></td><td><code>DashboardController</code></td></tr>
+            <tr><td><code>GET /checks</code></td><td><code>checks.index</code></td><td><code>HealthCheckController@index</code></td></tr>
+            <tr><td><code>POST /health-checks</code></td><td><code>health-checks.store</code></td><td><code>HealthCheckController@store</code></td></tr>
+            <tr><td><code>GET /history</code></td><td><code>history.index</code></td><td><code>IncidentController@index</code></td></tr>
+            <tr><td><code>GET /incidents/{incident}</code></td><td><code>incidents.show</code></td><td><code>IncidentController@show</code></td></tr>
+            <tr><td><code>POST /incidents/{incident}/recover</code></td><td><code>incidents.recover</code></td><td><code>RecoveryController@store</code></td></tr>
+            <tr><td><code>POST /incidents/{incident}/retest</code></td><td><code>incidents.retest</code></td><td><code>HealthCheckController@retest</code></td></tr>
+            <tr><td><code>PATCH /settings</code></td><td><code>settings.update</code></td><td><code>MonitorSettingController@update</code></td></tr>
+            <tr><td><code>GET /status</code></td><td><code>status</code></td><td><code>StatusController</code></td></tr>
+        </tbody>
+    </table>
+    <h3>Models</h3>
+    <ul>
+        <li><code>Device</code> identifies this installation’s computer and links its history.</li>
+        <li><code>HealthCheck</code> stores one measurement: adapter facts, probe results, timings, diagnosis, and score.</li>
+        <li><code>Incident</code> stores a detected condition, its opening and closing checks, status, and resolution.</li>
+        <li><code>RecoveryAction</code> stores one repair request, its command result, verification result, and the related checks.</li>
+        <li><code>MonitorSetting</code> stores the interval, automatic-check switch, warning threshold, and lookup-test name.</li>
+    </ul>
+    <h3>Controllers</h3>
+    <ul>
+        <li><code>DashboardController</code> prepares the summary, response bars, current status, and latest checks.</li>
+        <li><code>HealthCheckController</code> lists checks and starts a manual check or a result check.</li>
+        <li><code>IncidentController</code> lists incidents and shows one incident, including the panel used by the record window.</li>
+        <li><code>RecoveryController</code> accepts an approved repair request.</li>
+        <li><code>MonitorSettingController</code> validates and saves monitoring settings.</li>
+        <li><code>StatusController</code> returns the current local status for the page refresh.</li>
+    </ul>
+    <h3>Views</h3>
+    <p>The shared frame is <code>layouts/app.blade.php</code>, which holds the side menu, theme control, settings window, and repair confirmation. The screens are <code>dashboard/index</code>, <code>checks/index</code>, <code>history/index</code>, and <code>incidents/show</code>. The incident story is shared by <code>incidents/case</code> and <code>incidents/panel</code>. Tables, status marks, and icons are Blade components.</p>
+    <h3>Processing behind the controllers</h3>
+    <p><code>NetworkHealthService</code> runs a check through <code>NetworkProbeService</code>, <code>HealthScoreCalculator</code>, <code>DiagnosticEngine</code>, and <code>IncidentManager</code>. <code>RecoveryService</code> performs the guarded repair and calls <code>RecoveryCommandRunner</code> for the Windows command. <code>LocalSummaryService</code> builds the dashboard figures from this computer’s records only.</p>
+</section>
+
+<section class="page">
+    <p class="kicker">H &nbsp; Program flow</p>
+    <h2>Program flow</h2>
+    <p>The diagram shows the path from a check on this computer through diagnosis, an incident when one is required, and an approved repair when the user requests one. Side paths keep an unfinished reading, a healthy result, and an incident with no repair from being described as something they are not.</p>
+    <figure>
+        <img src="program-flow.svg" alt="Flow diagram of a NetRescue check, diagnosis, incident, and verified repair">
+        <figcaption>Figure 1. Check, diagnosis, incident, and repair flow.</figcaption>
+    </figure>
+</section>
+
+<section class="page">
+    <p class="kicker">I &nbsp; User interface and screenshots</p>
+    <h2>User interface and screenshots</h2>
+    <p>The screenshots were taken from the running application in light mode on October 16, 2026. The computer name on the dashboard is the name reported by Windows for this machine.</p>
+
+    <figure>
+        <img src="screenshots/01-dashboard.png" alt="Dashboard with connection summary, response times, current status, and latest checks">
+        <figcaption>Figure 2. Dashboard. The summary cards, response-time bars, current network facts, and latest checks are visible together. Green, blue, and rose text distinguish a normal result, a slow result, and a failed result.</figcaption>
+    </figure>
+    <figure>
+        <img src="screenshots/02-checks.png" alt="Checks page listing saved measurements">
+        <figcaption>Figure 3. Checks. Saved measurements list the gateway, Internet, and name-lookup outcome. Rows that could not run a later test say that an earlier requirement did not pass, or that the reading was not measured.</figcaption>
+    </figure>
+</section>
+
+<section class="page">
+    <figure>
+        <img src="screenshots/03-incidents.png" alt="Incidents page with outcomes and closed status">
+        <figcaption>Figure 4. Incidents. Each row gives the problem, when it started, how long it lasted, the outcome and repair statement, and whether it is open or closed.</figcaption>
+    </figure>
+    <figure>
+        <img src="screenshots/04-incident-filter.png" alt="Incident status filter opened">
+        <figcaption>Figure 5. Incident filters. Status and severity use the application menu. Apply submits the selected filter.</figcaption>
+    </figure>
+</section>
+
+<section class="page">
+    <figure>
+        <img src="screenshots/05-incident-detail.png" alt="Closed incident for an adapter that was turned off">
+        <figcaption>Figure 6. Incident detail for a verified repair. The page shows the problem, the open and close times, the detected condition, one repair result, and the closing check. The command log stays closed until it is opened.</figcaption>
+    </figure>
+    <figure>
+        <img src="screenshots/06-incident-evidence.png" alt="Opened measurements and command details for the latest repair request">
+        <figcaption>Figure 7. Latest request. Opening the section shows the command result, exit code, verification timing, the before and after readings, and the stored command excerpt.</figcaption>
+    </figure>
+</section>
+
+<section class="page">
+    <figure>
+        <img src="screenshots/07-incident-unverified.png" alt="Closed incident whose repair was not verified">
+        <figcaption>Figure 8. Unverified repair. The repair card states that the command exceeded its time limit and the follow-up reading did not finish. The resolution card states that a later check observed recovery but did not verify the repair as the cause.</figcaption>
+    </figure>
+    <figure>
+        <img src="screenshots/08-settings.png" alt="Monitoring settings window over the dashboard">
+        <figcaption>Figure 9. Settings. Automatic checks, the interval, the slow-response warning, and the lookup-test name are edited here and saved on this computer.</figcaption>
+    </figure>
+</section>
+
+</body>
+</html>

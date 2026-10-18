@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 820 1320" font-family="Segoe UI, Arial, sans-serif">
+  <defs>
+    <marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+      <path d="M0 0 L8 4 L0 8 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <style>
+    .box { fill: #ffffff; stroke: #1e40af; stroke-width: 1.6; }
+    .decision { fill: #f8fafc; stroke: #0369a1; stroke-width: 1.6; }
+    .end { fill: #eff6ff; stroke: #1e40af; stroke-width: 1.6; }
+    .label { fill: #0f172a; font-size: 15px; }
+    .small { fill: #334155; font-size: 12px; }
+    .line { stroke: #64748b; stroke-width: 1.5; fill: none; marker-end: url(#arrow); }
+    .yes { fill: #15803d; font-size: 12px; font-weight: 700; }
+    .no { fill: #be123c; font-size: 12px; font-weight: 700; }
+  </style>
+
+  <rect x="250" y="20" width="280" height="46" rx="23" class="end"/>
+  <text x="390" y="49" text-anchor="middle" class="label">Start on this computer</text>
+  <path d="M390 66 V98" class="line"/>
+
+  <rect x="175" y="98" width="430" height="58" rx="10" class="box"/>
+  <text x="390" y="122" text-anchor="middle" class="label">Scheduled check or Run Check</text>
+  <text x="390" y="142" text-anchor="middle" class="small">Read the adapter, address, gateway, and DNS</text>
+  <path d="M390 156 V188" class="line"/>
+
+  <polygon points="390,188 560,232 390,276 220,232" class="decision"/>
+  <text x="390" y="236" text-anchor="middle" class="label">Reading finished?</text>
+  <text x="574" y="228" class="no">No</text>
+  <text x="398" y="296" class="yes">Yes</text>
+  <path d="M560 232 H690 V250" class="line"/>
+  <rect x="575" y="250" width="210" height="58" rx="10" class="box"/>
+  <text x="680" y="274" text-anchor="middle" class="label">Store the reading</text>
+  <text x="680" y="292" text-anchor="middle" class="small">Do not invent a fault</text>
+
+  <path d="M390 276 V314" class="line"/>
+  <rect x="155" y="314" width="470" height="58" rx="10" class="box"/>
+  <text x="390" y="338" text-anchor="middle" class="label">Test gateway, Internet, and name lookup</text>
+  <text x="390" y="356" text-anchor="middle" class="small">Stop later tests when an earlier prerequisite fails</text>
+  <path d="M390 372 V404" class="line"/>
+
+  <rect x="175" y="404" width="430" height="48" rx="10" class="box"/>
+  <text x="390" y="434" text-anchor="middle" class="label">Score the reading and select one diagnosis</text>
+  <path d="M390 452 V484" class="line"/>
+
+  <polygon points="390,484 575,532 390,580 205,532" class="decision"/>
+  <text x="390" y="536" text-anchor="middle" class="label">Open an incident?</text>
+  <text x="190" y="524" text-anchor="end" class="no">No</text>
+  <text x="398" y="600" class="yes">Yes</text>
+  <path d="M205 532 H90 V560" class="line"/>
+  <rect x="10" y="560" width="180" height="48" rx="10" class="box"/>
+  <text x="100" y="588" text-anchor="middle" class="label">Refresh dashboard</text>
+
+  <path d="M390 580 V618" class="line"/>
+  <rect x="175" y="618" width="430" height="48" rx="10" class="box"/>
+  <text x="390" y="648" text-anchor="middle" class="label">Open or update the incident record</text>
+  <path d="M390 666 V698" class="line"/>
+
+  <polygon points="390,698 590,746 390,794 190,746" class="decision"/>
+  <text x="390" y="750" text-anchor="middle" class="label">Run an approved repair?</text>
+  <text x="176" y="738" text-anchor="end" class="no">No</text>
+  <text x="398" y="814" class="yes">Yes</text>
+  <path d="M190 746 H90 V774" class="line"/>
+  <rect x="10" y="774" width="180" height="48" rx="10" class="box"/>
+  <text x="100" y="802" text-anchor="middle" class="label">Leave the incident open</text>
+
+  <path d="M390 794 V832" class="line"/>
+  <rect x="155" y="832" width="470" height="58" rx="10" class="box"/>
+  <text x="390" y="856" text-anchor="middle" class="label">Measure the same adapter again</text>
+  <text x="390" y="874" text-anchor="middle" class="small">Skip the command if that condition is already gone</text>
+  <path d="M390 890 V922" class="line"/>
+
+  <rect x="145" y="922" width="490" height="58" rx="10" class="box"/>
+  <text x="390" y="946" text-anchor="middle" class="label">Run one predefined Windows command</text>
+  <text x="390" y="964" text-anchor="middle" class="small">Enable the adapter, renew the address, or clear DNS</text>
+  <path d="M390 980 V1012" class="line"/>
+
+  <rect x="135" y="1012" width="510" height="58" rx="10" class="box"/>
+  <text x="390" y="1036" text-anchor="middle" class="label">Follow-up check, without repeating the command</text>
+  <text x="390" y="1054" text-anchor="middle" class="small">A completed command is not the same as a cleared fault</text>
+  <path d="M390 1070 V1102" class="line"/>
+
+  <rect x="155" y="1102" width="470" height="58" rx="10" class="box"/>
+  <text x="390" y="1126" text-anchor="middle" class="label">Close with the measured outcome, or keep it open</text>
+  <text x="390" y="1144" text-anchor="middle" class="small">Store times, readings, and command evidence</text>
+  <path d="M390 1160 V1192" class="line"/>
+
+  <rect x="230" y="1192" width="320" height="46" rx="23" class="end"/>
+  <text x="390" y="1221" text-anchor="middle" class="label">Record available for review</text>
+</svg>
